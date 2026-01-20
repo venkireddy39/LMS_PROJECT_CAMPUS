@@ -26,19 +26,19 @@ const FeeManagement = () => {
 
     const columns = [
         { header: 'Student Name', accessor: 'studentName' },
-        { header: 'Monthly Fee', accessor: 'monthlyFee', render: (row) => `₹${row.monthlyFee}` },
-        { header: 'Total Fee', accessor: 'totalFee', render: (row) => `₹${row.totalFee}` },
-        { header: 'Amt Paid', accessor: 'amountPaid', render: (row) => `₹${row.amountPaid}` },
-        { header: 'Due', accessor: 'monthlyDue', render: (row) => <span className="text-danger fw-bold">₹{row.monthlyDue}</span> },
+        { header: 'Monthly Fee', accessor: 'monthlyFee', render: (row) => <span className="fw-500">₹{row.monthlyFee}</span> },
+        { header: 'Total Fee', accessor: 'totalFee', render: (row) => <span>₹{row.totalFee}</span> },
+        { header: 'Amt Paid', accessor: 'amountPaid', render: (row) => <span className="text-success">₹{row.amountPaid}</span> },
+        { header: 'Due', accessor: 'monthlyDue', render: (row) => <span className="text-danger fw-600">₹{row.monthlyDue}</span> },
         {
             header: 'Status',
             accessor: 'status',
             render: (row) => {
-                let badgeClass = 'bg-secondary';
-                if (row.status === 'Paid') badgeClass = 'bg-success';
-                else if (row.status === 'Due') badgeClass = 'bg-danger';
-                else if (row.status === 'Partial') badgeClass = 'bg-warning text-dark';
-                return <span className={`badge ${badgeClass}`}>{row.status}</span>;
+                let badgeClass = 'bg-secondary bg-opacity-10 text-secondary';
+                if (row.status === 'Paid') badgeClass = 'bg-success bg-opacity-10 text-success';
+                else if (row.status === 'Due') badgeClass = 'bg-danger bg-opacity-10 text-danger';
+                else if (row.status === 'Partial') badgeClass = 'bg-warning bg-opacity-10 text-warning-emphasis';
+                return <span className={`badge rounded-pill px-3 py-2 fw-bold ${badgeClass}`}>{row.status}</span>;
             }
         },
         { header: 'Last Payment', accessor: 'lastPaymentDate' },
@@ -46,79 +46,104 @@ const FeeManagement = () => {
             header: 'Actions',
             accessor: 'actions',
             render: (row) => (
-                <button className="btn btn-sm btn-outline-primary" onClick={() => handleEditClick(row)}>
-                    <i className="bi bi-pencil-square"></i> Edit
+                <button className="btn btn-sm btn-light border rounded-pill px-3 fw-500 shadow-sm" onClick={() => handleEditClick(row)}>
+                    <i className="bi bi-pencil-square me-1"></i> Edit
                 </button>
             )
         }
     ];
 
     return (
-        <div className="container-fluid position-relative">
-            <h3 className="mb-4 fw-bold">Fee & Payment Management</h3>
+        <div className="container-fluid py-4 animate-in">
+            <header className="mb-4">
+                <h3 className="fw-bold text-dark mb-1">Fee & Payment Management</h3>
+                <p className="text-muted small">Centralized collection and due tracking for campus residents.</p>
+            </header>
+
             <DataTable
-                title="Fee Records"
+                title="Resident Accounts"
                 columns={columns}
                 data={fees}
             />
 
-            {/* Edit Fee Modal */}
+            {/* Premium Edit Fee Modal */}
             {showModal && currentFee && (
-                <>
-                    <div className="modal fade show d-block" tabIndex="-1" role="dialog" style={{ backgroundColor: 'rgba(0,0,0,0.5)' }}>
-                        <div className="modal-dialog modal-lg" role="document">
-                            <div className="modal-content">
-                                <div className="modal-header">
-                                    <h5 className="modal-title fw-bold">Edit Fee Details</h5>
-                                    <button type="button" className="btn-close" onClick={() => setShowModal(false)}></button>
-                                </div>
-                                <div className="modal-body">
-                                    <form onSubmit={handleSave}>
-                                        <div className="row g-3">
-                                            <div className="col-md-6">
-                                                <label className="form-label">Student Name</label>
-                                                <input type="text" className="form-control" name="studentName" value={currentFee.studentName} onChange={handleInputChange} required />
-                                            </div>
-                                            <div className="col-md-6">
-                                                <label className="form-label">Monthly Fee</label>
-                                                <input type="number" className="form-control" name="monthlyFee" value={currentFee.monthlyFee} onChange={handleInputChange} required />
-                                            </div>
-                                            <div className="col-md-6">
-                                                <label className="form-label">Total Fee</label>
-                                                <input type="number" className="form-control" name="totalFee" value={currentFee.totalFee} onChange={handleInputChange} required />
-                                            </div>
-                                            <div className="col-md-6">
-                                                <label className="form-label">Amount Paid</label>
-                                                <input type="number" className="form-control" name="amountPaid" value={currentFee.amountPaid} onChange={handleInputChange} required />
-                                            </div>
-                                            <div className="col-md-6">
-                                                <label className="form-label">Due Amount</label>
-                                                <input type="number" className="form-control" name="monthlyDue" value={currentFee.monthlyDue} onChange={handleInputChange} required />
-                                            </div>
-                                            <div className="col-md-6">
-                                                <label className="form-label">Last Payment Date</label>
-                                                <input type="date" className="form-control" name="lastPaymentDate" value={currentFee.lastPaymentDate} onChange={handleInputChange} />
-                                            </div>
-                                            <div className="col-md-12">
-                                                <label className="form-label">Payment Status</label>
-                                                <select className="form-select" name="status" value={currentFee.status} onChange={handleInputChange}>
-                                                    <option value="Paid">Paid</option>
-                                                    <option value="Partial">Partial</option>
-                                                    <option value="Due">Due</option>
-                                                </select>
+                <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)' }}>
+                    <div className="modal-dialog modal-lg modal-dialog-centered">
+                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ background: 'white', overflow: 'hidden' }}>
+                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-light bg-opacity-50">
+                                <h5 className="modal-title fw-bold text-dark mb-0">
+                                    <i className="bi bi-wallet2 text-primary me-2"></i>Update Billing Details
+                                </h5>
+                                <button type="button" className="btn-close shadow-none" onClick={() => setShowModal(false)}></button>
+                            </div>
+                            <div className="p-4">
+                                <form onSubmit={handleSave}>
+                                    <div className="row g-4">
+                                        <div className="col-md-6">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Student Name</label>
+                                            <input type="text" className="form-control" name="studentName" value={currentFee.studentName} onChange={handleInputChange} required />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Monthly Rental</label>
+                                            <div className="input-group">
+                                                <span className="input-group-text bg-light border-end-0">₹</span>
+                                                <input type="number" className="form-control border-start-0 ps-0" name="monthlyFee" value={currentFee.monthlyFee} onChange={handleInputChange} required />
                                             </div>
                                         </div>
-                                        <div className="mt-4 text-end">
-                                            <button type="button" className="btn btn-secondary me-2" onClick={() => setShowModal(false)}>Cancel</button>
-                                            <button type="submit" className="btn btn-primary">Save Changes</button>
+                                        <div className="col-md-6">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Total Billing</label>
+                                            <div className="input-group">
+                                                <span className="input-group-text bg-light border-end-0">₹</span>
+                                                <input type="number" className="form-control border-start-0 ps-0" name="totalFee" value={currentFee.totalFee} onChange={handleInputChange} required />
+                                            </div>
                                         </div>
-                                    </form>
-                                </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Amount Collected</label>
+                                            <div className="input-group">
+                                                <span className="input-group-text bg-light border-end-0">₹</span>
+                                                <input type="number" className="form-control border-start-0 ps-0 text-success fw-bold" name="amountPaid" value={currentFee.amountPaid} onChange={handleInputChange} required />
+                                            </div>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Balance Due</label>
+                                            <div className="input-group">
+                                                <span className="input-group-text bg-light border-end-0">₹</span>
+                                                <input type="number" className="form-control border-start-0 ps-0 text-danger fw-bold" name="monthlyDue" value={currentFee.monthlyDue} onChange={handleInputChange} required />
+                                            </div>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Collection Date</label>
+                                            <input type="date" className="form-control" name="lastPaymentDate" value={currentFee.lastPaymentDate} onChange={handleInputChange} />
+                                        </div>
+                                        <div className="col-md-12">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Payment Status</label>
+                                            <div className="d-flex gap-3">
+                                                {['Paid', 'Partial', 'Due'].map((status) => (
+                                                    <label key={status} className={`flex-fill p-3 border rounded-3 cursor-pointer transition-all ${currentFee.status === status ? 'border-primary bg-primary bg-opacity-10 fw-bold text-primary' : 'bg-light bg-opacity-50'}`} style={{ cursor: 'pointer' }}>
+                                                        <input type="radio" value={status} name="status" checked={currentFee.status === status} onChange={handleInputChange} className="d-none" />
+                                                        <div className="text-center">{status}</div>
+                                                    </label>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div className="mt-5 d-flex gap-2 justify-content-end">
+                                        <button type="button" className="btn btn-light px-4 rounded-pill fw-500" onClick={() => setShowModal(false)}>Discard</button>
+                                        <button type="submit" className="btn-premium btn-premium-primary rounded-pill px-5">Commit Changes</button>
+                                    </div>
+                                </form>
                             </div>
                         </div>
                     </div>
-                </>
+                </div>
             )}
+
+            <style jsx>{`
+                .fw-600 { font-weight: 600; }
+                .fw-500 { font-weight: 500; }
+                .smaller { font-size: 0.7rem; }
+            `}</style>
         </div>
     );
 };

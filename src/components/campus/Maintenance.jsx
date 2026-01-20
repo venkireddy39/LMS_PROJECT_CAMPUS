@@ -3,47 +3,199 @@ import DataTable from '../common/DataTable';
 import { maintenanceData } from '../../data/maintenanceData';
 
 const Maintenance = () => {
+    const [issues, setIssues] = React.useState(maintenanceData);
+    const [showModal, setShowModal] = React.useState(false);
+    const [currentIssue, setCurrentIssue] = React.useState(null);
+    const [isNewIssue, setIsNewIssue] = React.useState(false);
+
+    const handleEditClick = (issue) => {
+        setCurrentIssue({ ...issue });
+        setIsNewIssue(false);
+        setShowModal(true);
+    };
+
+    const handleAddNewClick = () => {
+        setCurrentIssue({
+            hostelName: '',
+            roomNumber: '',
+            category: 'Plumbing',
+            description: '',
+            reportedDate: new Date().toISOString().split('T')[0],
+            priority: 'Medium',
+            status: 'Open',
+            remarks: ''
+        });
+        setIsNewIssue(true);
+        setShowModal(true);
+    };
+
+    const handleInputChange = (e) => {
+        const { name, value } = e.target;
+        setCurrentIssue({ ...currentIssue, [name]: value });
+    };
+
+    const handleSave = (e) => {
+        e.preventDefault();
+        if (isNewIssue) {
+            // Add new issue
+            const newIssue = {
+                id: issues.length + 1,
+                ...currentIssue
+            };
+            setIssues(prev => [...prev, newIssue]);
+        } else {
+            // Update existing issue
+            setIssues(prev => prev.map(i => i.id === currentIssue.id ? currentIssue : i));
+        }
+        setShowModal(false);
+        setCurrentIssue(null);
+        setIsNewIssue(false);
+    };
+
     const columns = [
-        { header: 'Hostel Name', accessor: 'hostelName' },
+        { header: 'Hostel Name', accessor: 'hostelName', render: (row) => <span className="fw-500">{row.hostelName}</span> },
         { header: 'Room No.', accessor: 'roomNumber' },
         {
             header: 'Category',
             accessor: 'category',
-            render: (row) => <span className="fw-bold">{row.category}</span>
+            render: (row) => <span className="fw-600 text-dark">{row.category}</span>
         },
-        { header: 'Description', accessor: 'description' },
+        { header: 'Description', accessor: 'description', render: (row) => <span className="small text-muted">{row.description}</span> },
         { header: 'Reported Date', accessor: 'reportedDate' },
         {
             header: 'Priority',
             accessor: 'priority',
             render: (row) => {
-                let color = 'secondary';
-                if (row.priority === 'High') color = 'danger';
-                if (row.priority === 'Medium') color = 'warning text-dark';
-                return <span className={`badge bg-${color}`}>{row.priority}</span>;
+                let badgeClass = 'bg-secondary bg-opacity-10 text-secondary';
+                if (row.priority === 'High') badgeClass = 'bg-danger bg-opacity-10 text-danger';
+                if (row.priority === 'Medium') badgeClass = 'bg-warning bg-opacity-10 text-warning-emphasis';
+                return <span className={`badge rounded-pill px-3 py-2 fw-bold ${badgeClass}`}>{row.priority}</span>;
             }
         },
         {
             header: 'Status',
             accessor: 'status',
             render: (row) => {
-                let color = 'secondary';
-                if (row.status === 'Resolved') color = 'success';
-                if (row.status === 'In Progress') color = 'primary';
-                return <span className={`badge bg-${color}`}>{row.status}</span>;
+                let badgeClass = 'bg-secondary bg-opacity-10 text-secondary';
+                if (row.status === 'Resolved') badgeClass = 'bg-success bg-opacity-10 text-success';
+                if (row.status === 'In Progress') badgeClass = 'bg-primary bg-opacity-10 text-primary';
+                return <span className={`badge rounded-pill px-3 py-2 fw-bold ${badgeClass}`}>{row.status}</span>;
             }
         },
-        { header: 'Remarks', accessor: 'remarks' },
+        {
+            header: 'Actions',
+            accessor: 'actions',
+            render: (row) => (
+                <button className="btn btn-sm btn-light border rounded-pill px-3 fw-500 shadow-sm" onClick={() => handleEditClick(row)}>
+                    <i className="bi bi-pencil-square me-1"></i> Edit
+                </button>
+            )
+        }
     ];
 
     return (
-        <div className="container-fluid">
-            <h3 className="mb-4 fw-bold">Maintenance & Issues</h3>
+        <div className="container-fluid py-4 animate-in">
+            <header className="mb-4 d-flex justify-content-between align-items-center">
+                <div>
+                    <h3 className="fw-bold text-dark mb-1">Maintenance & Issues</h3>
+                    <p className="text-muted small">Track and resolve facility-related complaints and repair requests.</p>
+                </div>
+            </header>
+
             <DataTable
-                title="Reported Issues"
+                title="Service Tickets"
                 columns={columns}
-                data={maintenanceData}
+                data={issues}
+                actions={
+                    <button className="btn-premium btn-premium-primary" onClick={handleAddNewClick}>
+                        <i className="bi bi-plus-circle"></i> Add Ticket
+                    </button>
+                }
             />
+
+            {/* Premium Add/Edit Issue Modal */}
+            {showModal && currentIssue && (
+                <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)' }}>
+                    <div className="modal-dialog modal-lg modal-dialog-centered">
+                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ background: 'white', overflow: 'hidden' }}>
+                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-light bg-opacity-50">
+                                <h5 className="modal-title fw-bold text-dark mb-0">
+                                    {isNewIssue ? (
+                                        <><i className="bi bi-tools text-primary me-2"></i>New Service Request</>
+                                    ) : (
+                                        <><i className="bi bi-pencil-square text-primary me-2"></i>Update Ticket Status</>
+                                    )}
+                                </h5>
+                                <button type="button" className="btn-close shadow-none" onClick={() => setShowModal(false)}></button>
+                            </div>
+                            <div className="p-4">
+                                <form onSubmit={handleSave}>
+                                    <div className="row g-4">
+                                        <div className="col-md-6">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Hostel Name</label>
+                                            <input type="text" className="form-control" name="hostelName" value={currentIssue.hostelName} onChange={handleInputChange} placeholder="e.g. Boys Luxury Residency" required />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Room Number</label>
+                                            <input type="text" className="form-control" name="roomNumber" value={currentIssue.roomNumber} onChange={handleInputChange} placeholder="e.g. 302-A" required />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Issue Category</label>
+                                            <select className="form-select" name="category" value={currentIssue.category} onChange={handleInputChange}>
+                                                <option value="Plumbing">Plumbing</option>
+                                                <option value="Electrical">Electrical</option>
+                                                <option value="Furniture">Furniture</option>
+                                                <option value="Cleaning">Cleaning</option>
+                                                <option value="Others">Others</option>
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Priority Level</label>
+                                            <select className="form-select" name="priority" value={currentIssue.priority} onChange={handleInputChange}>
+                                                <option value="Low">Low (Standard)</option>
+                                                <option value="Medium">Medium (Urgent)</option>
+                                                <option value="High">High (Immediate)</option>
+                                            </select>
+                                        </div>
+                                        <div className="col-md-12">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Issue Description</label>
+                                            <textarea className="form-control" name="description" value={currentIssue.description} onChange={handleInputChange} rows="3" placeholder="Explain the problem in detail..." required></textarea>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Reported Date</label>
+                                            <input type="date" className="form-control" name="reportedDate" value={currentIssue.reportedDate} onChange={handleInputChange} required />
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Workflow Status</label>
+                                            <select className="form-select" name="status" value={currentIssue.status} onChange={handleInputChange}>
+                                                <option value="Open">🆕 Open Ticket</option>
+                                                <option value="In Progress">⚙️ In Progress</option>
+                                                <option value="Resolved">✅ Resolved</option>
+                                            </select>
+                                        </div>
+                                        <div className="col-md-12">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Admin Remarks</label>
+                                            <textarea className="form-control" name="remarks" value={currentIssue.remarks} onChange={handleInputChange} rows="2" placeholder="Resolution details or internal notes..."></textarea>
+                                        </div>
+                                    </div>
+                                    <div className="mt-5 d-flex gap-2 justify-content-end">
+                                        <button type="button" className="btn btn-light px-4 rounded-pill fw-500" onClick={() => setShowModal(false)}>Cancel</button>
+                                        <button type="submit" className="btn-premium btn-premium-primary rounded-pill px-5">
+                                            {isNewIssue ? 'Create Ticket' : 'Update Record'}
+                                        </button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            <style jsx>{`
+                .fw-600 { font-weight: 600; }
+                .fw-500 { font-weight: 500; }
+                .smaller { font-size: 0.7rem; }
+            `}</style>
         </div>
     );
 };

@@ -12,6 +12,10 @@ const Sidebar = () => {
         { path: '/fees', label: 'Fee & Payment', icon: 'bi-cash-coin' },
         { path: '/security', label: 'Security Deposit', icon: 'bi-shield-lock' },
         { path: '/maintenance', label: 'Maintenance', icon: 'bi-tools' },
+        { path: '/attendance', label: 'Attendance', icon: 'bi-calendar-check' },
+        { path: '/health', label: 'Health Issues', icon: <i className="bi bi-heart-pulse"></i> },
+        { path: '/parent-visits', label: 'Parent Visits', icon: <i className="bi bi-people"></i> },
+        { path: '/mess', label: 'Mess Management', icon: <i className="bi bi-egg-fried"></i> },
     ];
 
     return (
