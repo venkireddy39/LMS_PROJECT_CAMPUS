@@ -1,11 +1,30 @@
 import React from 'react';
 import DataTable from '../common/DataTable';
 import { securityDepositData } from '../../data/feeData';
+import { useStudentContext } from '../../context/StudentContext';
 
 const SecurityDeposit = () => {
+    const { students } = useStudentContext();
     const [deposits, setDeposits] = React.useState(securityDepositData);
     const [showModal, setShowModal] = React.useState(false);
     const [currentDeposit, setCurrentDeposit] = React.useState(null);
+
+    // Synchronize deposit data with current active students
+    const activeStudentDeposits = React.useMemo(() => {
+        const activeStudents = students.filter(s => s.stayStatus === 'Active');
+        return activeStudents.map(student => {
+            const existingDeposit = deposits.find(d => d.studentName === student.name);
+            if (existingDeposit) return existingDeposit;
+
+            return {
+                id: `dep-${student.id}`,
+                studentName: student.name,
+                depositAmount: 5000,
+                paidStatus: 'No',
+                refundEligibility: 'No'
+            };
+        });
+    }, [students, deposits]);
 
     // Add Modal State
     const [showAddModal, setShowAddModal] = React.useState(false);
@@ -28,7 +47,16 @@ const SecurityDeposit = () => {
 
     const handleSave = (e) => {
         e.preventDefault();
-        setDeposits(prev => prev.map(d => d.id === currentDeposit.id ? currentDeposit : d));
+        setDeposits(prev => {
+            const index = prev.findIndex(d => d.studentName === currentDeposit.studentName);
+            if (index !== -1) {
+                const updated = [...prev];
+                updated[index] = currentDeposit;
+                return updated;
+            } else {
+                return [...prev, currentDeposit];
+            }
+        });
         setShowModal(false);
         setCurrentDeposit(null);
     };
@@ -41,7 +69,7 @@ const SecurityDeposit = () => {
     const handleAddSubmit = (e) => {
         e.preventDefault();
         const depositToAdd = {
-            id: deposits.length + 1,
+            id: Date.now(),
             ...newDeposit,
             depositAmount: parseInt(newDeposit.depositAmount)
         };
@@ -86,7 +114,7 @@ const SecurityDeposit = () => {
         <div className="container-fluid py-4 animate-in">
             <header className="mb-4 d-flex justify-content-between align-items-center">
                 <div>
-                    <h3 className="fw-bold text-dark mb-1">Security Deposit</h3>
+                    <h3 className="fw-bold text-main mb-1">Security Deposit</h3>
                     <p className="text-muted small">Manage refundable deposits and financial clearance status.</p>
                 </div>
             </header>
@@ -99,7 +127,7 @@ const SecurityDeposit = () => {
             <DataTable
                 title="Deposit Ledgers"
                 columns={columns}
-                data={deposits}
+                data={activeStudentDeposits}
                 actions={
                     <button className="btn-premium btn-premium-primary" onClick={() => setShowAddModal(true)}>
                         <i className="bi bi-plus-circle"></i> New Deposit
@@ -111,9 +139,9 @@ const SecurityDeposit = () => {
             {showModal && currentDeposit && (
                 <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)' }}>
                     <div className="modal-dialog modal-dialog-centered">
-                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ background: 'white', overflow: 'hidden' }}>
-                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-light bg-opacity-50">
-                                <h5 className="modal-title fw-bold text-dark mb-0">
+                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ overflow: 'hidden' }}>
+                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-primary bg-opacity-10">
+                                <h5 className="modal-title fw-bold text-main mb-0">
                                     <i className="bi bi-shield-lock-fill text-primary me-2"></i>Modify Deposit Info
                                 </h5>
                                 <button type="button" className="btn-close shadow-none" onClick={() => setShowModal(false)}></button>
@@ -159,9 +187,9 @@ const SecurityDeposit = () => {
             {showAddModal && (
                 <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)' }}>
                     <div className="modal-dialog modal-dialog-centered">
-                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ background: 'white', overflow: 'hidden' }}>
-                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-light bg-opacity-50">
-                                <h5 className="modal-title fw-bold text-dark mb-0">
+                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ overflow: 'hidden' }}>
+                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-primary bg-opacity-10">
+                                <h5 className="modal-title fw-bold text-main mb-0">
                                     <i className="bi bi-file-earmark-plus-fill text-primary me-2"></i>New Deposit Record
                                 </h5>
                                 <button type="button" className="btn-close shadow-none" onClick={() => setShowAddModal(false)}></button>

@@ -68,13 +68,13 @@ const MessManagement = () => {
         <div className="container-fluid py-4 animate-in overflow-hidden">
             <header className="d-flex justify-content-between align-items-center mb-5">
                 <div>
-                    <h2 className="fw-bold text-dark mb-1"><MdRestaurantMenu className="text-primary me-2" />Mess Control Center</h2>
+                    <h2 className="fw-bold text-main mb-1"><MdRestaurantMenu className="text-primary me-2" />Mess Control Center</h2>
                     <p className="text-muted mb-0">Monitor service status and manage daily dining menus.</p>
                 </div>
                 <div className="d-flex gap-3 align-items-center">
                     <div className="text-end d-none d-md-block">
                         <p className="mb-0 smaller text-muted fw-bold text-uppercase tracking-wider">Operational Status</p>
-                        <p className="mb-0 small text-dark"><MdOutlineUpdate className="text-primary" /> {mess.lastUpdated}</p>
+                        <p className="mb-0 small text-main"><MdOutlineUpdate className="text-primary" /> {mess.lastUpdated}</p>
                     </div>
                     <button
                         className={`btn-premium ${mess.isOpen ? 'btn-premium-primary' : 'btn-danger shadow-lg'}`}
@@ -107,16 +107,16 @@ const MessManagement = () => {
                                             onChange={(e) => handleInputChange(e, meal)}
                                         />
                                     ) : (
-                                        <div className="d-flex align-items-center gap-2 text-dark fw-bold h5 mb-0">
+                                        <div className="d-flex align-items-center gap-2 text-main fw-bold h5 mb-0">
                                             {mess.menu[meal].time}
                                         </div>
                                     )}
                                 </div>
                                 <label className="smaller fw-bold text-muted text-uppercase tracking-wider mb-2 d-block">Today's Menu</label>
-                                <div className={`p-3 rounded-4 ${isEditing ? 'bg-white shadow-inner' : 'bg-light bg-opacity-50'}`} style={{ minHeight: '120px' }}>
+                                <div className={`p-3 rounded-4 ${isEditing ? 'bg-primary bg-opacity-5 shadow-inner' : 'bg-primary bg-opacity-5'}`} style={{ minHeight: '120px' }}>
                                     {isEditing ? (
                                         <textarea
-                                            className="form-control border-0 bg-transparent shadow-none"
+                                            className="form-control border-0 bg-transparent shadow-none text-main"
                                             rows="4"
                                             name="items"
                                             value={editData.menu[meal].items}
@@ -124,7 +124,7 @@ const MessManagement = () => {
                                             style={{ resize: 'none' }}
                                         ></textarea>
                                     ) : (
-                                        <p className="mb-0 fw-500 text-dark" style={{ whiteSpace: 'pre-line' }}>{mess.menu[meal].items}</p>
+                                        <p className="mb-0 fw-500 text-main" style={{ whiteSpace: 'pre-line' }}>{mess.menu[meal].items}</p>
                                     )}
                                 </div>
 
@@ -176,7 +176,7 @@ const MessManagement = () => {
                                         onChange={(e) => handleInputChange(e)}
                                     />
                                 ) : (
-                                    <h3 className="mb-0 fw-bold text-dark">{mess.special}</h3>
+                                    <h3 className="mb-0 fw-bold text-main">{mess.special}</h3>
                                 )}
                             </div>
                             <div className="col-md-auto">
@@ -197,7 +197,7 @@ const MessManagement = () => {
             </div>
 
             {/* Premium Board Preview */}
-            <div className="mt-5 glass-card border-0 p-5 text-center bg-white">
+            <div className="mt-5 glass-card border-0 p-5 text-center">
                 <div className="badge bg-primary bg-opacity-10 text-primary px-3 py-2 rounded-pill mb-3 fw-bold text-uppercase smaller tracking-widest">
                     Live Digital Signage Preview
                 </div>

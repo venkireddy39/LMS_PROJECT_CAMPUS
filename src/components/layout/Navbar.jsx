@@ -1,8 +1,11 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
+import { useTheme } from '../../context/ThemeContext';
+import { FaSun, FaMoon } from 'react-icons/fa';
 
 const Navbar = () => {
+    const { isDarkMode, toggleTheme } = useTheme();
     const location = useLocation();
     const [activeHash, setActiveHash] = React.useState(window.location.hash.replace('#', '') || 'dashboard');
 
@@ -73,18 +76,27 @@ const Navbar = () => {
                     </ul>
 
                     <div className="d-flex align-items-center gap-3">
+                        <button
+                            className="btn btn-light rounded-circle shadow-sm border d-flex align-items-center justify-content-center p-2"
+                            onClick={toggleTheme}
+                            title={isDarkMode ? "Switch to Light Mode" : "Switch to Dark Mode"}
+                            style={{ width: '40px', height: '40px', background: 'var(--bg-card)', color: 'var(--primary)' }}
+                        >
+                            {isDarkMode ? <FaSun /> : <FaMoon />}
+                        </button>
+
                         <div className="dropdown">
-                            <a href="#" className="d-flex align-items-center link-dark text-decoration-none dropdown-toggle glass-card p-1 pe-3 rounded-pill" id="dropdownUser1" data-bs-toggle="dropdown">
+                            <a href="#" className="d-flex align-items-center text-decoration-none dropdown-toggle glass-card p-1 pe-3 rounded-pill border" id="dropdownUser1" data-bs-toggle="dropdown">
                                 <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80" alt="admin" width="36" height="36" className="rounded-circle me-2 object-fit-cover" />
                                 <div className="d-none d-sm-block">
-                                    <p className="mb-0 small fw-bold text-dark">Super Admin</p>
+                                    <p className="mb-0 small fw-bold text-main">Super Admin</p>
                                     <p className="mb-0 smaller text-muted" style={{ fontSize: '10px' }}>Online</p>
                                 </div>
                             </a>
-                            <ul className="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-2 p-2">
-                                <li><a className="dropdown-item rounded-2" href="#"><i className="bi bi-person me-2"></i>My Profile</a></li>
-                                <li><a className="dropdown-item rounded-2" href="#"><i className="bi bi-gear me-2"></i>Settings</a></li>
-                                <li><hr className="dropdown-divider mx-2" /></li>
+                            <ul className="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-2 p-2 glass-card">
+                                <li><a className="dropdown-item rounded-2 text-main" href="#"><i className="bi bi-person me-2"></i>My Profile</a></li>
+                                <li><a className="dropdown-item rounded-2 text-main" href="#"><i className="bi bi-gear me-2"></i>Settings</a></li>
+                                <li><hr className="dropdown-divider mx-2 border-secondary opacity-25" /></li>
                                 <li><a className="dropdown-item rounded-2 text-danger" href="#"><i className="bi bi-box-arrow-right me-2"></i>Log Out</a></li>
                             </ul>
                         </div>

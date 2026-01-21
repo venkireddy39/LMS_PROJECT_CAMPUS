@@ -15,17 +15,40 @@ const Attendance = () => {
     const [showRemarkModal, setShowRemarkModal] = useState(false);
     const [editingRecord, setEditingRecord] = useState(null);
     const [remarkText, setRemarkText] = useState('');
+    const [notifiedStudents, setNotifiedStudents] = useState({}); // Tracking notification status
 
     // Handle Status Toggle
     const handleStatusToggle = (record) => {
+        const newStatus = record.status === 'Present' ? 'Absent' : 'Present';
+
+        // Update local status
         const updatedData = data.map(item => {
             if (item.id === record.id) {
-                const newStatus = item.status === 'Present' ? 'Absent' : 'Present';
                 return { ...item, status: newStatus };
             }
             return item;
         });
         setData(updatedData);
+
+        // Auto-trigger notification if marked absent
+        if (newStatus === 'Absent') {
+            sendParentNotification(record);
+        }
+    };
+
+    // Simulate Sending Notification
+    const sendParentNotification = (record) => {
+        const student = getActiveStudents().find(s => s.name === record.studentName);
+        const parentPhone = student?.fatherPhone || 'Unknown';
+
+        setNotifiedStudents(prev => ({ ...prev, [record.id]: 'Sending...' }));
+
+        console.log(`[SMS Gateway] Sending alert to ${parentPhone}: "Dear Parent, ${record.studentName} is marked ABSENT on ${record.date}."`);
+
+        // Simulate network delay
+        setTimeout(() => {
+            setNotifiedStudents(prev => ({ ...prev, [record.id]: 'Delivered' }));
+        }, 1500);
     };
 
     // Handle Add/Edit Remark
@@ -90,7 +113,7 @@ const Attendance = () => {
     });
 
     const dateStats = {
-        total: filteredData.length,
+        total: getActiveStudents().length,
         present: filteredData.filter(item => item.status === 'Present').length,
         absent: filteredData.filter(item => item.status === 'Absent').length,
     };
@@ -119,6 +142,34 @@ const Attendance = () => {
             )
         },
         {
+            header: 'Notification',
+            accessor: 'notification',
+            render: (row) => {
+                if (row.status !== 'Absent') return null;
+                const status = notifiedStudents[row.id];
+                return (
+                    <div className="d-flex align-items-center gap-2">
+                        {status === 'Delivered' ? (
+                            <span className="badge bg-success bg-opacity-10 text-success rounded-pill smaller px-2">
+                                <i className="bi bi-check2-all me-1"></i> Sent to Parent
+                            </span>
+                        ) : status === 'Sending...' ? (
+                            <span className="badge bg-warning bg-opacity-10 text-warning rounded-pill smaller px-2 animate-pulse">
+                                <i className="bi bi-send me-1"></i> Alerting...
+                            </span>
+                        ) : (
+                            <button
+                                className="btn btn-sm btn-outline-primary border-0 smaller py-0 px-2"
+                                onClick={() => sendParentNotification(row)}
+                            >
+                                <i className="bi bi-arrow-clockwise me-1"></i> Resend Alert
+                            </button>
+                        )}
+                    </div>
+                );
+            }
+        },
+        {
             header: 'Remarks',
             accessor: 'remarks',
             render: (row) => (
@@ -138,13 +189,13 @@ const Attendance = () => {
         <div className="container-fluid py-4 animate-in">
             <header className="mb-4 d-flex justify-content-between align-items-center">
                 <div>
-                    <h3 className="fw-bold text-dark mb-1">Daily Attendance Logging</h3>
+                    <h3 className="fw-bold text-main mb-1">Daily Attendance Logging</h3>
                     <p className="text-muted small">Real-time presence tracking for campus residents.</p>
                 </div>
                 <div className="d-flex gap-3 align-items-center">
-                    <div className="d-flex align-items-center gap-2 bg-white px-3 py-2 rounded-pill shadow-sm border border-light">
+                    <div className="d-flex align-items-center gap-2 glass-card px-3 py-2 rounded-pill shadow-sm">
                         <i className="bi bi-calendar-event text-primary"></i>
-                        <input type="date" className="form-control form-control-sm border-0 bg-transparent p-0" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: '130px' }} />
+                        <input type="date" className="form-control form-control-sm border-0 bg-transparent p-0 text-main" value={date} onChange={(e) => setDate(e.target.value)} style={{ width: '130px' }} />
                     </div>
                     <button className="btn-premium btn-premium-primary" onClick={handleMarkAttendance}>
                         <i className="bi bi-plus-lg"></i> Take Attendance
@@ -162,7 +213,7 @@ const Attendance = () => {
                             <div className={`position-absolute top-0 start-0 h-100 bg-${item.color}`} style={{ width: '4px', opacity: 0.6 }}></div>
                             <div>
                                 <p className="text-muted smaller text-uppercase fw-bold mb-1 ls-1">{item.label}</p>
-                                <h2 className="fw-bold mb-0 text-dark">{item.value}</h2>
+                                <h2 className="fw-bold mb-0 text-main">{item.value}</h2>
                             </div>
                             <div className={`bg-${item.color} bg-opacity-10 p-3 rounded-circle text-${item.color}`}>
                                 <i className={`bi ${item.icon} fs-3`}></i>
@@ -187,9 +238,9 @@ const Attendance = () => {
             {showRemarkModal && editingRecord && (
                 <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)' }}>
                     <div className="modal-dialog modal-dialog-centered">
-                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ background: 'white', overflow: 'hidden' }}>
-                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-light bg-opacity-50">
-                                <h5 className="modal-title fw-bold text-dark mb-0">
+                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ overflow: 'hidden' }}>
+                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-primary bg-opacity-10">
+                                <h5 className="modal-title fw-bold text-main mb-0">
                                     <i className="bi bi-chat-dots-fill text-primary me-2"></i>Log Remark
                                 </h5>
                                 <button type="button" className="btn-close shadow-none" onClick={() => setShowRemarkModal(false)}></button>
@@ -198,7 +249,7 @@ const Attendance = () => {
                                 <form onSubmit={handleSaveRemark}>
                                     <div className="mb-4">
                                         <label className="form-label fw-600 smaller text-uppercase text-muted">Resident Name</label>
-                                        <div className="p-3 bg-light rounded-3 border fw-500 text-dark">
+                                        <div className="p-3 bg-primary bg-opacity-5 rounded-3 border fw-500 text-main">
                                             {editingRecord.studentName} <span className="text-muted smaller ms-2">(Room {editingRecord.roomNo})</span>
                                         </div>
                                     </div>
@@ -229,6 +280,13 @@ const Attendance = () => {
                 .fw-500 { font-weight: 500; }
                 .smaller { font-size: 0.7rem; }
                 .ls-1 { letter-spacing: 0.5px; }
+                .animate-pulse {
+                    animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+                }
+                @keyframes pulse {
+                    0%, 100% { opacity: 1; }
+                    50% { opacity: .5; }
+                }
             `}</style>
         </div>
     );

@@ -1,9 +1,34 @@
 import React from 'react';
 import DataTable from '../common/DataTable';
 import { roomData } from '../../data/hostelData';
+import { useStudentContext } from '../../context/StudentContext';
 
 const RoomManagement = () => {
+    const { students } = useStudentContext();
     const [rooms, setRooms] = React.useState(roomData);
+
+    // Synchronize room occupancy with context students
+    const syncRoomsWithStudents = React.useCallback((currentRooms) => {
+        return currentRooms.map(room => {
+            const occupiedCount = students.filter(s =>
+                s.roomNumber === room.roomNumber && s.stayStatus === 'Active'
+            ).length;
+
+            const vacant = room.capacity - occupiedCount;
+            let status = 'Partially Filled';
+            if (occupiedCount === 0) status = 'Available';
+            if (occupiedCount >= room.capacity) status = 'Full';
+
+            return {
+                ...room,
+                occupied: occupiedCount,
+                vacant: vacant,
+                status: status
+            };
+        });
+    }, [students]);
+
+    const displayRooms = React.useMemo(() => syncRoomsWithStudents(rooms), [rooms, syncRoomsWithStudents]);
 
     const [filterStatus, setFilterStatus] = React.useState('All');
     const [filterSharing, setFilterSharing] = React.useState('All');
@@ -12,7 +37,7 @@ const RoomManagement = () => {
 
     // Filter and Sort Logic
     const filteredAndSortedRooms = React.useMemo(() => {
-        let result = [...rooms];
+        let result = [...displayRooms];
 
         // Apply Filters
         if (filterStatus !== 'All') {
@@ -43,31 +68,7 @@ const RoomManagement = () => {
         });
 
         return result;
-    }, [rooms, filterStatus, filterSharing, sortBy, sortOrder]);
-
-    const handleOccupiedChange = (roomNumber, newOccupied) => {
-        const val = parseInt(newOccupied);
-        if (isNaN(val) || val < 0) return; // Basic validation
-
-        setRooms(prevRooms => prevRooms.map(room => {
-            if (room.roomNumber === roomNumber) {
-                if (val > room.capacity) return room; // Prevent exceeding capacity
-
-                const newVacant = room.capacity - val;
-                let newStatus = 'Partially Filled';
-                if (val === 0) newStatus = 'Available';
-                if (val === room.capacity) newStatus = 'Full';
-
-                return {
-                    ...room,
-                    occupied: val,
-                    vacant: newVacant,
-                    status: newStatus
-                };
-            }
-            return room;
-        }));
-    };
+    }, [displayRooms, filterStatus, filterSharing, sortBy, sortOrder]);
 
     const [showModal, setShowModal] = React.useState(false);
     const [newRoom, setNewRoom] = React.useState({
@@ -120,15 +121,7 @@ const RoomManagement = () => {
             accessor: 'occupied',
             render: (row) => (
                 <div className="d-flex align-items-center gap-2">
-                    <input
-                        type="number"
-                        min="0"
-                        max={row.capacity}
-                        className="form-control form-control-sm rounded-pill px-3 py-1 shadow-sm border-light"
-                        style={{ width: '85px', fontSize: '0.9rem' }}
-                        value={row.occupied}
-                        onChange={(e) => handleOccupiedChange(row.roomNumber, e.target.value)}
-                    />
+                    <span className="fw-bold text-primary">{row.occupied}</span>
                 </div>
             )
         },
@@ -151,7 +144,7 @@ const RoomManagement = () => {
         <div className="container-fluid py-4 animate-in">
             <header className="mb-4 d-flex justify-content-between align-items-center">
                 <div>
-                    <h3 className="fw-bold text-dark mb-1">Room & Vacancy Management</h3>
+                    <h3 className="fw-bold text-main mb-1">Room & Vacancy Management</h3>
                     <p className="text-muted small">Real-time room occupancy tracking and accommodation management.</p>
                 </div>
             </header>
@@ -208,9 +201,9 @@ const RoomManagement = () => {
             {showModal && (
                 <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)' }}>
                     <div className="modal-dialog modal-dialog-centered">
-                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ background: 'white', overflow: 'hidden' }}>
-                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-light bg-opacity-50">
-                                <h5 className="modal-title fw-bold text-dark mb-0">
+                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ overflow: 'hidden' }}>
+                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-primary bg-opacity-10">
+                                <h5 className="modal-title fw-bold text-main mb-0">
                                     <i className="bi bi-house-add-fill text-primary me-2"></i>Provision New Room
                                 </h5>
                                 <button type="button" className="btn-close shadow-none" onClick={() => setShowModal(false)}></button>

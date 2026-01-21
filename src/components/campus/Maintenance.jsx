@@ -58,7 +58,7 @@ const Maintenance = () => {
         {
             header: 'Category',
             accessor: 'category',
-            render: (row) => <span className="fw-600 text-dark">{row.category}</span>
+            render: (row) => <span className="fw-600 text-main">{row.category}</span>
         },
         { header: 'Description', accessor: 'description', render: (row) => <span className="small text-muted">{row.description}</span> },
         { header: 'Reported Date', accessor: 'reportedDate' },
@@ -97,7 +97,7 @@ const Maintenance = () => {
         <div className="container-fluid py-4 animate-in">
             <header className="mb-4 d-flex justify-content-between align-items-center">
                 <div>
-                    <h3 className="fw-bold text-dark mb-1">Maintenance & Issues</h3>
+                    <h3 className="fw-bold text-main mb-1">Maintenance & Issues</h3>
                     <p className="text-muted small">Track and resolve facility-related complaints and repair requests.</p>
                 </div>
             </header>
@@ -117,9 +117,9 @@ const Maintenance = () => {
             {showModal && currentIssue && (
                 <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)' }}>
                     <div className="modal-dialog modal-lg modal-dialog-centered">
-                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ background: 'white', overflow: 'hidden' }}>
-                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-light bg-opacity-50">
-                                <h5 className="modal-title fw-bold text-dark mb-0">
+                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ overflow: 'hidden' }}>
+                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-primary bg-opacity-10">
+                                <h5 className="modal-title fw-bold text-main mb-0">
                                     {isNewIssue ? (
                                         <><i className="bi bi-tools text-primary me-2"></i>New Service Request</>
                                     ) : (

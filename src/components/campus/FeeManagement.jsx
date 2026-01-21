@@ -1,11 +1,35 @@
 import React from 'react';
 import DataTable from '../common/DataTable';
 import { feeData } from '../../data/feeData';
+import { useStudentContext } from '../../context/StudentContext';
 
 const FeeManagement = () => {
+    const { students } = useStudentContext();
     const [fees, setFees] = React.useState(feeData);
     const [showModal, setShowModal] = React.useState(false);
     const [currentFee, setCurrentFee] = React.useState(null);
+
+    // Synchronize fee data with current active students
+    const activeStudentFees = React.useMemo(() => {
+        const activeStudents = students.filter(s => s.stayStatus === 'Active');
+        return activeStudents.map(student => {
+            // Check if we already have fee data for this student (by name for now, as dummy data doesn't have student IDs matching)
+            const existingFee = fees.find(f => f.studentName === student.name);
+            if (existingFee) return existingFee;
+
+            // Otherwise return default fee values for new student
+            return {
+                id: `new-${student.id}`,
+                studentName: student.name,
+                monthlyFee: 5000, // Default
+                totalFee: 5000,
+                amountPaid: 0,
+                monthlyDue: 5000,
+                status: 'Due',
+                lastPaymentDate: 'N/A'
+            };
+        });
+    }, [students, fees]);
 
     const handleEditClick = (feeRecord) => {
         setCurrentFee({ ...feeRecord });
@@ -19,7 +43,16 @@ const FeeManagement = () => {
 
     const handleSave = (e) => {
         e.preventDefault();
-        setFees(prevFees => prevFees.map(f => f.id === currentFee.id ? currentFee : f));
+        setFees(prevFees => {
+            const index = prevFees.findIndex(f => f.studentName === currentFee.studentName);
+            if (index !== -1) {
+                const updated = [...prevFees];
+                updated[index] = currentFee;
+                return updated;
+            } else {
+                return [...prevFees, currentFee];
+            }
+        });
         setShowModal(false);
         setCurrentFee(null);
     };
@@ -56,23 +89,23 @@ const FeeManagement = () => {
     return (
         <div className="container-fluid py-4 animate-in">
             <header className="mb-4">
-                <h3 className="fw-bold text-dark mb-1">Fee & Payment Management</h3>
+                <h3 className="fw-bold text-main mb-1">Fee & Payment Management</h3>
                 <p className="text-muted small">Centralized collection and due tracking for campus residents.</p>
             </header>
 
             <DataTable
                 title="Resident Accounts"
                 columns={columns}
-                data={fees}
+                data={activeStudentFees}
             />
 
             {/* Premium Edit Fee Modal */}
             {showModal && currentFee && (
                 <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)' }}>
                     <div className="modal-dialog modal-lg modal-dialog-centered">
-                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ background: 'white', overflow: 'hidden' }}>
-                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-light bg-opacity-50">
-                                <h5 className="modal-title fw-bold text-dark mb-0">
+                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ overflow: 'hidden' }}>
+                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-primary bg-opacity-10">
+                                <h5 className="modal-title fw-bold text-main mb-0">
                                     <i className="bi bi-wallet2 text-primary me-2"></i>Update Billing Details
                                 </h5>
                                 <button type="button" className="btn-close shadow-none" onClick={() => setShowModal(false)}></button>
@@ -87,28 +120,28 @@ const FeeManagement = () => {
                                         <div className="col-md-6">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Monthly Rental</label>
                                             <div className="input-group">
-                                                <span className="input-group-text bg-light border-end-0">₹</span>
+                                                <span className="input-group-text glass-card border-end-0 rounded-start-pill">₹</span>
                                                 <input type="number" className="form-control border-start-0 ps-0" name="monthlyFee" value={currentFee.monthlyFee} onChange={handleInputChange} required />
                                             </div>
                                         </div>
                                         <div className="col-md-6">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Total Billing</label>
                                             <div className="input-group">
-                                                <span className="input-group-text bg-light border-end-0">₹</span>
+                                                <span className="input-group-text glass-card border-end-0 rounded-start-pill">₹</span>
                                                 <input type="number" className="form-control border-start-0 ps-0" name="totalFee" value={currentFee.totalFee} onChange={handleInputChange} required />
                                             </div>
                                         </div>
                                         <div className="col-md-6">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Amount Collected</label>
                                             <div className="input-group">
-                                                <span className="input-group-text bg-light border-end-0">₹</span>
+                                                <span className="input-group-text glass-card border-end-0 rounded-start-pill">₹</span>
                                                 <input type="number" className="form-control border-start-0 ps-0 text-success fw-bold" name="amountPaid" value={currentFee.amountPaid} onChange={handleInputChange} required />
                                             </div>
                                         </div>
                                         <div className="col-md-6">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Balance Due</label>
                                             <div className="input-group">
-                                                <span className="input-group-text bg-light border-end-0">₹</span>
+                                                <span className="input-group-text glass-card border-end-0 rounded-start-pill">₹</span>
                                                 <input type="number" className="form-control border-start-0 ps-0 text-danger fw-bold" name="monthlyDue" value={currentFee.monthlyDue} onChange={handleInputChange} required />
                                             </div>
                                         </div>
@@ -120,7 +153,7 @@ const FeeManagement = () => {
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Payment Status</label>
                                             <div className="d-flex gap-3">
                                                 {['Paid', 'Partial', 'Due'].map((status) => (
-                                                    <label key={status} className={`flex-fill p-3 border rounded-3 cursor-pointer transition-all ${currentFee.status === status ? 'border-primary bg-primary bg-opacity-10 fw-bold text-primary' : 'bg-light bg-opacity-50'}`} style={{ cursor: 'pointer' }}>
+                                                    <label key={status} className={`flex-fill p-3 border rounded-3 cursor-pointer transition-all ${currentFee.status === status ? 'border-primary bg-primary bg-opacity-10 fw-bold text-primary' : 'bg-primary bg-opacity-5'}`} style={{ cursor: 'pointer' }}>
                                                         <input type="radio" value={status} name="status" checked={currentFee.status === status} onChange={handleInputChange} className="d-none" />
                                                         <div className="text-center">{status}</div>
                                                     </label>

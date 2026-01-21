@@ -90,7 +90,7 @@ const HealthIssues = () => {
             accessor: 'phone',
             render: (row) => (
                 <div className="smaller lh-sm py-1">
-                    <div className="text-dark fw-500 mb-1"><i className="bi bi-person-fill text-primary me-2"></i>{row.studentPhone || 'N/A'}</div>
+                    <div className="text-main fw-500 mb-1"><i className="bi bi-person-fill text-primary me-2"></i>{row.studentPhone || 'N/A'}</div>
                     <div className="text-muted"><i className="bi bi-people-fill text-success me-2"></i>{row.parentPhone || 'N/A'}</div>
                 </div>
             )
@@ -121,7 +121,7 @@ const HealthIssues = () => {
         <div className="container-fluid py-4 animate-in">
             <header className="mb-4 d-flex justify-content-between align-items-center">
                 <div>
-                    <h3 className="fw-bold text-dark mb-1">Health & Wellness Tracker</h3>
+                    <h3 className="fw-bold text-main mb-1">Health & Wellness Tracker</h3>
                     <p className="text-muted small">Centralized monitoring for student health and medical emergencies.</p>
                 </div>
             </header>
@@ -138,7 +138,7 @@ const HealthIssues = () => {
                             <div className={`position-absolute top-0 start-0 h-100 bg-${item.color}`} style={{ width: '4px', opacity: 0.6 }}></div>
                             <div>
                                 <p className="text-muted smaller text-uppercase fw-bold mb-1 ls-1">{item.label}</p>
-                                <h2 className="fw-bold mb-0 text-dark">{item.value}</h2>
+                                <h2 className="fw-bold mb-0 text-main">{item.value}</h2>
                             </div>
                             <div className={`bg-${item.color} bg-opacity-10 p-3 rounded-circle text-${item.color}`}>
                                 <i className={`bi ${item.icon} fs-3`}></i>
@@ -163,9 +163,9 @@ const HealthIssues = () => {
             {showModal && (
                 <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)' }}>
                     <div className="modal-dialog modal-lg modal-dialog-centered">
-                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ background: 'white', overflow: 'hidden' }}>
-                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-light bg-opacity-50">
-                                <h5 className="modal-title fw-bold text-dark mb-0">
+                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ overflow: 'hidden' }}>
+                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-primary bg-opacity-10">
+                                <h5 className="modal-title fw-bold text-main mb-0">
                                     {isNewRecord ? (
                                         <><i className="bi bi-plus-circle-fill text-primary me-2"></i>Report New Incident</>
                                     ) : (
@@ -211,15 +211,15 @@ const HealthIssues = () => {
                                             <input type="date" className="form-control" name="reportedDate" value={currentRecord.reportedDate} onChange={handleInputChange} required />
                                         </div>
                                         <div className="col-md-6">
-                                            <div className="p-3 bg-light rounded-3 border-dashed">
+                                            <div className="p-3 bg-primary bg-opacity-5 rounded-3 border-dashed">
                                                 <label className="form-label fw-600 smaller text-uppercase text-muted mb-2">Student Contact</label>
-                                                <div className="fw-bold text-dark">{currentRecord.studentPhone || '---'}</div>
+                                                <div className="fw-bold text-main">{currentRecord.studentPhone || '---'}</div>
                                             </div>
                                         </div>
                                         <div className="col-md-6">
-                                            <div className="p-3 bg-light rounded-3 border-dashed">
+                                            <div className="p-3 bg-primary bg-opacity-5 rounded-3 border-dashed">
                                                 <label className="form-label fw-600 smaller text-uppercase text-muted mb-2">Parent Contact</label>
-                                                <div className="fw-bold text-dark">{currentRecord.parentPhone || '---'}</div>
+                                                <div className="fw-bold text-main">{currentRecord.parentPhone || '---'}</div>
                                             </div>
                                         </div>
                                         <div className="col-md-12">

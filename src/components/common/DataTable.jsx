@@ -3,8 +3,8 @@ import React from 'react';
 const DataTable = ({ columns, data, title, actions }) => {
     return (
         <div className="glass-card mb-4 animate-in">
-            <div className="px-4 py-4 d-flex justify-content-between align-items-center border-bottom border-light">
-                <h5 className="mb-0 fw-bold text-dark">{title}</h5>
+            <div className="px-4 py-4 d-flex justify-content-between align-items-center border-bottom border-light border-opacity-10">
+                <h5 className="mb-0 fw-bold text-main">{title}</h5>
                 {actions && <div className="d-flex gap-2">{actions}</div>}
             </div>
             <div className="p-3">

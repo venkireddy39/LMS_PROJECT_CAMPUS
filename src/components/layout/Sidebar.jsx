@@ -19,10 +19,10 @@ const Sidebar = () => {
     ];
 
     return (
-        <div className="d-flex flex-column flex-shrink-0 p-3 bg-light vh-100" style={{ width: '280px' }}>
-            <a href="/" className="d-flex align-items-center mb-3 mb-md-0 me-md-auto link-dark text-decoration-none">
-                <i className="bi bi-building fs-4 me-2"></i>
-                <span className="fs-4 fw-bold"> Campus </span>
+        <div className="d-flex flex-column flex-shrink-0 p-3 glass-card vh-100 border-0 border-end rounded-0" style={{ width: '280px' }}>
+            <a href="/" className="d-flex align-items-center mb-3 mb-md-0 me-md-auto text-decoration-none">
+                <i className="bi bi-building fs-4 me-2 text-primary"></i>
+                <span className="fs-4 fw-bold text-main"> Campus </span>
             </a>
             <hr />
             <ul className="nav nav-pills flex-column mb-auto">
@@ -30,26 +30,26 @@ const Sidebar = () => {
                     <li className="nav-item" key={item.path}>
                         <Link
                             to={item.path}
-                            className={`nav-link ${location.pathname === item.path ? 'active' : 'link-dark'}`}
+                            className={`nav-link ${location.pathname === item.path ? 'active' : 'text-main opacity-75'}`}
                             aria-current={location.pathname === item.path ? 'page' : undefined}
                         >
-                            <i className={`bi ${item.icon} me-2`}></i>
+                            <span className="me-2 text-primary">{item.icon}</span>
                             {item.label}
                         </Link>
                     </li>
                 ))}
             </ul>
-            <hr />
+            <hr className="opacity-25" />
             <div className="dropdown">
-                <a href="#" className="d-flex align-items-center link-dark text-decoration-none dropdown-toggle" id="dropdownUser2" data-bs-toggle="dropdown" aria-expanded="false">
+                <a href="#" className="d-flex align-items-center text-main text-decoration-none dropdown-toggle" id="dropdownUser2" data-bs-toggle="dropdown" aria-expanded="false">
                     <img src="https://github.com/mdo.png" alt="" width="32" height="32" className="rounded-circle me-2" />
                     <strong>Super Admin</strong>
                 </a>
-                <ul className="dropdown-menu text-small shadow" aria-labelledby="dropdownUser2">
-                    <li><a className="dropdown-item" href="#">Profile</a></li>
-                    <li><a className="dropdown-item" href="#">Settings</a></li>
-                    <li><hr className="dropdown-divider" /></li>
-                    <li><a className="dropdown-item" href="#">Sign out</a></li>
+                <ul className="dropdown-menu text-small shadow glass-card p-2 border-0" aria-labelledby="dropdownUser2">
+                    <li><a className="dropdown-item rounded-2 text-main" href="#">Profile</a></li>
+                    <li><a className="dropdown-item rounded-2 text-main" href="#">Settings</a></li>
+                    <li><hr className="dropdown-divider opacity-25" /></li>
+                    <li><a className="dropdown-item rounded-2 text-danger" href="#">Sign out</a></li>
                 </ul>
             </div>
         </div>

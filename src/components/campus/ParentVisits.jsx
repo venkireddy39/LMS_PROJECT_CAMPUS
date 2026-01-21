@@ -110,7 +110,7 @@ const ParentVisits = () => {
     return (
         <div className="container-fluid py-4 animate-in">
             <header className="mb-4">
-                <h3 className="fw-bold text-dark mb-1">Parent Visit Records</h3>
+                <h3 className="fw-bold text-main mb-1">Parent Visit Records</h3>
                 <p className="text-muted small">Track and manage campus visits from parents and authorized guardians.</p>
             </header>
 
@@ -126,7 +126,7 @@ const ParentVisits = () => {
                         <button
                             className={`btn-premium ${deleteMode ? 'btn-secondary shadow-sm' : 'btn-outline-danger'}`}
                             onClick={() => setDeleteMode(!deleteMode)}
-                            style={!deleteMode ? { border: '1px solid #fee2e2', background: '#fef2f2' } : {}}
+                            style={!deleteMode ? { border: '1px solid var(--border-main)', background: 'transparent' } : {}}
                         >
                             <i className={`bi ${deleteMode ? 'bi-x-circle' : 'bi-trash'}`}></i>
                             {deleteMode ? 'Cancel' : 'Delete'}
@@ -139,9 +139,9 @@ const ParentVisits = () => {
             {showModal && (
                 <div className="modal fade show d-block" tabIndex="-1" style={{ backgroundColor: 'rgba(15, 23, 42, 0.7)', backdropFilter: 'blur(4px)' }}>
                     <div className="modal-dialog modal-lg modal-dialog-centered">
-                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ background: 'white', overflow: 'hidden' }}>
-                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-light bg-opacity-50">
-                                <h5 className="modal-title fw-bold text-dark mb-0">
+                        <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ overflow: 'hidden' }}>
+                            <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-primary bg-opacity-10">
+                                <h5 className="modal-title fw-bold text-main mb-0">
                                     {editingVisit ? (
                                         <><i className="bi bi-pencil-square text-primary me-2"></i>Update Visit Entry</>
                                     ) : (
