@@ -234,6 +234,8 @@ const StudentDetails = () => {
             `}</style>
         </div>
     );
+
+    
 };
 
 export default StudentDetails;
