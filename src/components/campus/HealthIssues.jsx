@@ -1,15 +1,28 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import StatsCard from '../common/StatsCard';
 import DataTable from '../common/DataTable';
-import { healthIssuesData, healthStats } from '../../data/healthIssuesData';
+import campusService from '../../services/campusService';
 import { useStudentContext } from '../../context/StudentContext';
 
 const HealthIssues = () => {
     const { getActiveStudents } = useStudentContext();
-    const [records, setRecords] = useState(healthIssuesData);
+    const [records, setRecords] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [currentRecord, setCurrentRecord] = useState(null);
     const [isNewRecord, setIsNewRecord] = useState(false);
+
+    useEffect(() => {
+        loadRecords();
+    }, []);
+
+    const loadRecords = async () => {
+        try {
+            const data = await campusService.getAllIncidents();
+            setRecords(data || []);
+        } catch (error) {
+            console.error("Failed to load health records", error);
+        }
+    };
 
     const handleAddNewClick = () => {
         setCurrentRecord({
@@ -50,19 +63,23 @@ const HealthIssues = () => {
         }
     };
 
-    const handleSave = (e) => {
+    const handleSave = async (e) => {
         e.preventDefault();
-        if (isNewRecord) {
-            const newRecord = {
-                id: records.length + 1,
-                ...currentRecord
-            };
-            setRecords([...records, newRecord]);
-        } else {
-            setRecords(records.map(r => r.id === currentRecord.id ? currentRecord : r));
+        try {
+            if (isNewRecord) {
+                // Ensure ID is not sent for new creation if backend generates it
+                const { id, ...recordData } = currentRecord;
+                await campusService.createIncident(recordData);
+            } else {
+                await campusService.updateIncident(currentRecord.id, currentRecord);
+            }
+            loadRecords();
+            setShowModal(false);
+            setCurrentRecord(null);
+        } catch (error) {
+            console.error("Failed to save record", error);
+            alert("Failed to save record");
         }
-        setShowModal(false);
-        setCurrentRecord(null);
     };
 
     const stats = {
@@ -240,7 +257,7 @@ const HealthIssues = () => {
                 </div>
             )}
 
-            <style jsx>{`
+            <style>{`
                 .fw-600 { font-weight: 600; }
                 .fw-500 { font-weight: 500; }
                 .smaller { font-size: 0.7rem; }

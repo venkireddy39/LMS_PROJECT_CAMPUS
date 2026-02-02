@@ -7,11 +7,11 @@ const Sidebar = () => {
 
     const menuItems = [
         { path: '/', label: 'Dashboard', icon: 'bi-speedometer2' },
+        { path: '/hostels', label: 'Hostel Management', icon: 'bi-building' },
         { path: '/rooms', label: 'Room Management', icon: 'bi-door-open' },
         { path: '/students', label: 'Student Details', icon: 'bi-people' },
         { path: '/fees', label: 'Fee & Payment', icon: 'bi-cash-coin' },
-        { path: '/security', label: 'Security Deposit', icon: 'bi-shield-lock' },
-        { path: '/maintenance', label: 'Maintenance', icon: 'bi-tools' },
+        { path: '/complaints', label: 'Complaints', icon: 'bi-tools' },
         { path: '/attendance', label: 'Attendance', icon: 'bi-calendar-check' },
         { path: '/health', label: 'Health Issues', icon: <i className="bi bi-heart-pulse"></i> },
         { path: '/parent-visits', label: 'Parent Visits', icon: <i className="bi bi-people"></i> },

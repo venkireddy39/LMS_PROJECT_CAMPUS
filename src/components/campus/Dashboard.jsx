@@ -1,6 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import StatsCard from '../common/StatsCard';
-import { hostelStats } from '../../data/hostelData';
+import campusService from '../../services/campusService';
 import { useStudentContext } from '../../context/StudentContext';
 import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
@@ -8,22 +8,92 @@ import {
 } from 'recharts';
 
 const Dashboard = () => {
-    const { students } = useStudentContext();
+    // Note: Dashboard stats ideally should come from a dedicated API endpoint 
+    // to avoid fetching all data. For now, we will fetch lists to calculate.
+
+    const [stats, setStats] = useState({
+        totalCapacity: 0,
+        totalRooms: 0,
+        sharingBreakdown: { single: 0, double: 0, triple: 0, quad: 0 }
+    });
+
+    const { students } = useStudentContext(); // This might also need to be replaced with API call if students are in DB
+    // Assuming student context is still valid or needs migration. 
+    // For now, let's mix: real room data + context students (or maybe students need an API too?)
+    // The previous code used context for students. 
+
+    // Let's assume we fetch allocations effectively or rely on what we have.
+    // Ideally we should create a getDashboardStats() endpoint later.
+
+    useEffect(() => {
+        const fetchStats = async () => {
+            try {
+                // Fetch Rooms to calculate capacity and breakdown
+                const rooms = await campusService.getAllRooms();
+
+                let totalCapacity = 0;
+                let single = 0, double = 0, triple = 0, quad = 0;
+
+                if (rooms && Array.isArray(rooms)) {
+                    rooms.forEach(room => {
+                        // Handle sharingType being a string or number
+                        let sharingRef = room.sharingType;
+                        let cap = 0;
+
+                        // Parse sharing type to capacity number
+                        if (typeof sharingRef === 'string') {
+                            sharingRef = sharingRef.toUpperCase();
+                            if (sharingRef.includes('SINGLE')) cap = 1;
+                            else if (sharingRef.includes('DOUBLE')) cap = 2;
+                            else if (sharingRef.includes('TRIPLE')) cap = 3;
+                            else if (sharingRef.includes('QUAD')) cap = 4;
+                            else cap = 1; // Default
+                        } else {
+                            cap = parseInt(sharingRef) || 1;
+                        }
+
+                        // Use explicit capacity if valid number, else derived cap
+                        const finalCap = (room.capacity && !isNaN(room.capacity)) ? parseInt(room.capacity) : cap;
+
+                        totalCapacity += finalCap;
+
+                        // Categorize for breakdown
+                        if (cap === 1) single += finalCap;
+                        else if (cap === 2) double += finalCap;
+                        else if (cap === 3) triple += finalCap;
+                        else if (cap >= 4) quad += finalCap;
+                    });
+
+                    setStats({
+                        totalCapacity,
+                        totalRooms: rooms.length,
+                        sharingBreakdown: { single, double, triple, quad }
+                    });
+                }
+
+            } catch (error) {
+                console.error("Error fetching dashboard data", error);
+            }
+        };
+
+        fetchStats();
+    }, []);
+
     const occupiedBeds = students.filter(s => s.stayStatus === 'Active').length;
-    const vacantBeds = hostelStats.totalCapacity - occupiedBeds;
+    const vacantBeds = stats.totalCapacity - occupiedBeds;
 
     // Data for Bar Chart
     const sharingData = [
-        { name: 'Single', count: hostelStats.sharingBreakdown.single },
-        { name: 'Double', count: hostelStats.sharingBreakdown.double },
-        { name: 'Triple', count: hostelStats.sharingBreakdown.triple },
-        { name: 'Quad', count: hostelStats.sharingBreakdown.quad },
+        { name: 'Single', count: stats.sharingBreakdown.single },
+        { name: 'Double', count: stats.sharingBreakdown.double },
+        { name: 'Triple', count: stats.sharingBreakdown.triple },
+        { name: 'Quad', count: stats.sharingBreakdown.quad },
     ];
 
     // Data for Pie Chart
     const occupancyData = [
         { name: 'Occupied', value: occupiedBeds },
-        { name: 'Vacant', value: vacantBeds },
+        { name: 'Vacant', value: vacantBeds > 0 ? vacantBeds : 0 },
     ];
 
     const COLORS = ['#4361ee', '#ff9f1c']; // Premium Blue and Vibrant Orange
@@ -38,10 +108,10 @@ const Dashboard = () => {
             <div className="row g-4 mb-5">
                 {/* Stats Cards Row */}
                 {[
-                    { title: "Total Capacity", value: hostelStats.totalCapacity, icon: "bi-building", color: "primary", sub: "Total Beds" },
-                    { title: "Active Rooms", value: hostelStats.totalRooms, icon: "bi-house-heart", color: "success", sub: "Fully Managed" },
-                    { title: "Occupancy", value: `${((occupiedBeds / hostelStats.totalCapacity) * 100).toFixed(1)}%`, icon: "bi-graph-up-arrow", color: "info", sub: `${occupiedBeds} Beds Filled` },
-                    { title: "Vacant Units", value: vacantBeds, icon: "bi-door-open", color: "warning", sub: "Ready to Move" }
+                    { title: "Total Capacity", value: stats.totalCapacity, icon: "bi-building", color: "primary", sub: "Total Beds" },
+                    { title: "Active Rooms", value: stats.totalRooms, icon: "bi-house-heart", color: "success", sub: "Fully Managed" },
+                    { title: "Occupancy", value: stats.totalCapacity > 0 ? `${((occupiedBeds / stats.totalCapacity) * 100).toFixed(1)}%` : "0%", icon: "bi-graph-up-arrow", color: "info", sub: `${occupiedBeds} Beds Filled` },
+                    { title: "Vacant Units", value: vacantBeds > 0 ? vacantBeds : 0, icon: "bi-door-open", color: "warning", sub: "Ready to Move" }
                 ].map((stat, i) => (
                     <div className="col-md-6 col-lg-3" key={i}>
                         <div className="glass-card p-4 h-100 border-0">
@@ -71,7 +141,7 @@ const Dashboard = () => {
                             <button className="btn glass-card btn-sm rounded-pill px-3 border">View Detailed Report</button>
                         </div>
                         <div style={{ width: '100%', height: 350 }}>
-                            <ResponsiveContainer>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                                 <BarChart data={sharingData}>
                                     <defs>
                                         <linearGradient id="barGradient" x1="0" y1="0" x2="0" y2="1">
@@ -91,7 +161,7 @@ const Dashboard = () => {
                                         fill="url(#barGradient)"
                                         radius={[10, 10, 0, 0]}
                                         barSize={60}
-                                        name="Rooms"
+                                        name="Beds"
                                     />
                                 </BarChart>
                             </ResponsiveContainer>
@@ -105,7 +175,7 @@ const Dashboard = () => {
                         <h5 className="fw-bold mb-1 text-main">Occupancy Analytics</h5>
                         <p className="text-muted smaller mb-4">Current bed availability status</p>
                         <div style={{ width: '100%', height: 300 }} className="my-auto">
-                            <ResponsiveContainer>
+                            <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                                 <PieChart>
                                     <Pie
                                         data={occupancyData}
@@ -129,13 +199,13 @@ const Dashboard = () => {
                         </div>
                         <div className="mt-4 p-3 bg-primary bg-opacity-5 rounded-4 text-center">
                             <p className="mb-0 text-muted smaller fw-500">UTILIZATION RATE</p>
-                            <h3 className="fw-bold text-primary mb-0">{((occupiedBeds / hostelStats.totalCapacity) * 100).toFixed(0)}%</h3>
+                            <h3 className="fw-bold text-primary mb-0">{stats.totalCapacity > 0 ? ((occupiedBeds / stats.totalCapacity) * 100).toFixed(0) : 0}%</h3>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <style jsx>{`
+            <style>{`
                 .tracking-wider { letter-spacing: 0.05em; }
                 .uppercase { text-transform: uppercase; }
                 .fw-500 { font-weight: 500; }

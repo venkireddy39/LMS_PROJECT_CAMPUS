@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import DataTable from '../common/DataTable';
-import { parentVisitData as initialData } from '../../data/parentVisitData';
+import campusService from '../../services/campusService';
 import { FaEdit, FaPlus } from 'react-icons/fa';
 import { MdOutlineDelete } from "react-icons/md";
 
 const ParentVisits = () => {
-    const [visits, setVisits] = useState(initialData);
+    const [visits, setVisits] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [deleteMode, setDeleteMode] = useState(false);
     const [editingVisit, setEditingVisit] = useState(null);
@@ -19,23 +19,52 @@ const ParentVisits = () => {
         relation: 'Father'
     });
 
+    useEffect(() => {
+        loadVisits();
+    }, []);
+
+    const loadVisits = async () => {
+        try {
+            const data = await campusService.getAllVisits();
+            setVisits(data || []);
+        } catch (error) {
+            console.error("Failed to load visits", error);
+        }
+    };
+
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         setFormData({ ...formData, [name]: value });
     };
 
-    const handleSubmit = (e) => {
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        if (editingVisit) {
-            setVisits(visits.map(v => v.id === editingVisit.id ? { ...v, ...formData } : v));
-        } else {
-            const newVisit = {
-                id: Date.now(),
-                ...formData
-            };
-            setVisits([...visits, newVisit]);
+        try {
+            if (editingVisit) {
+                // Note: Java controller only had updateStatus. 
+                // Assuming updateVisit generic endpoint or re-using create if id passed?
+                // Actually the controller only has updateVisitStatus. 
+                // So we can't fully update details unless we add that endpoint.
+                // For now, I'll assume we might not be able to edit details, or alert user?
+                // Wait, let me check the service again.
+                // Service has: updateVisitStatus. No full update. 
+                // I will treat 'Edit' as read-only or just not implement full update if backend doesn't support it, 
+                // OR maybe delete old and create new? 
+                // Let's implement CREATE and DELETE properly. EDIT might be limited.
+                alert("Editing details not supported by backend yet.");
+            } else {
+                const newVisit = {
+                    ...formData,
+                    status: 'Planned' // Default status
+                };
+                await campusService.createVisit(newVisit);
+                loadVisits();
+            }
+            handleCloseModal();
+        } catch (error) {
+            console.error("Failed to save visit", error);
+            alert("Failed to save visit");
         }
-        handleCloseModal();
     };
 
     const handleEdit = (visit) => {
@@ -52,9 +81,14 @@ const ParentVisits = () => {
         setShowModal(true);
     };
 
-    const handleDelete = (id, studentName) => {
+    const handleDelete = async (id, studentName) => {
         if (window.confirm(`Are you sure you want to delete the visit record for ${studentName}?`)) {
-            setVisits(visits.filter(v => v.id !== id));
+            try {
+                await campusService.deleteVisit(id);
+                loadVisits();
+            } catch (error) {
+                console.error("Failed to delete", error);
+            }
         }
     };
 
@@ -158,7 +192,7 @@ const ParentVisits = () => {
                                             <input type="text" className="form-control" name="studentName" value={formData.studentName} onChange={handleInputChange} placeholder="Full name of student" required />
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Parent/Guardian Name</label>
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Vistor Name</label>
                                             <input type="text" className="form-control" name="parentName" value={formData.parentName} onChange={handleInputChange} placeholder="Full name of visitor" required />
                                         </div>
                                         <div className="col-md-6">
@@ -200,7 +234,7 @@ const ParentVisits = () => {
                 </div>
             )}
 
-            <style jsx>{`
+            <style>{`
                 .fw-600 { font-weight: 600; }
                 .smaller { font-size: 0.7rem; }
             `}</style>

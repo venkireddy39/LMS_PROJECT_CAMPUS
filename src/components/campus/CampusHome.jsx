@@ -3,12 +3,12 @@ import Dashboard from './Dashboard';
 import RoomManagement from './RoomManagement';
 import StudentDetails from './StudentDetails';
 import FeeManagement from './FeeManagement';
-import SecurityDeposit from './SecurityDeposit';
-import Maintenance from './Maintenance';
+import Complaints from './Complaints';
 import Attendance from './Attendance';
 import HealthIssues from './HealthIssues';
 import ParentVisits from './ParentVisits';
 import MessManagement from './MessManagement';
+import HostelManagement from './HostelManagement';
 
 const CampusHome = () => {
     useEffect(() => {
@@ -56,6 +56,10 @@ const CampusHome = () => {
                 <Dashboard />
             </section>
 
+            <section id="hostels" className="section-padding border-top">
+                <HostelManagement />
+            </section>
+
             <section id="rooms" className="section-padding border-top">
                 <RoomManagement />
             </section>
@@ -68,12 +72,9 @@ const CampusHome = () => {
                 <FeeManagement />
             </section>
 
-            <section id="security" className="section-padding border-top">
-                <SecurityDeposit />
-            </section>
 
-            <section id="maintenance" className="section-padding border-top">
-                <Maintenance />
+            <section id="complaints" className="section-padding border-top">
+                <Complaints />
             </section>
 
             <section id="attendance" className="section-padding border-top">
@@ -92,18 +93,7 @@ const CampusHome = () => {
                 <MessManagement />
             </section>
 
-            <style jsx>{`
-                .campus-single-page {
-                    scroll-behavior: smooth;
-                }
-                .section-padding {
-                    padding-bottom: 3rem;
-                    scroll-margin-top: 80px; /* Adjust based on navbar height */
-                }
-                .border-top {
-                    border-top: 1px solid rgba(0,0,0,0.05) !important;
-                }
-            `}</style>
+
         </div>
     );
 };

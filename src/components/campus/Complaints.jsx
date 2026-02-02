@@ -1,12 +1,28 @@
 import React from 'react';
 import DataTable from '../common/DataTable';
-import { maintenanceData } from '../../data/maintenanceData';
+import campusService from '../../services/campusService';
+import { useStudentContext } from '../../context/StudentContext';
 
-const Maintenance = () => {
-    const [issues, setIssues] = React.useState(maintenanceData);
+const Complaints = () => {
+    const { students, refreshStudents } = useStudentContext();
+    const [issues, setIssues] = React.useState([]);
     const [showModal, setShowModal] = React.useState(false);
     const [currentIssue, setCurrentIssue] = React.useState(null);
     const [isNewIssue, setIsNewIssue] = React.useState(false);
+
+    React.useEffect(() => {
+        refreshStudents(); // Ensure we have the latest student list
+        loadComplaints();
+    }, []);
+
+    const loadComplaints = async () => {
+        try {
+            const data = await campusService.getAllComplaints();
+            setIssues(data || []);
+        } catch (error) {
+            console.error("Failed to load complaints", error);
+        }
+    };
 
     const handleEditClick = (issue) => {
         setCurrentIssue({ ...issue });
@@ -16,6 +32,7 @@ const Maintenance = () => {
 
     const handleAddNewClick = () => {
         setCurrentIssue({
+            studentName: '',
             hostelName: '',
             roomNumber: '',
             category: 'Plumbing',
@@ -34,25 +51,39 @@ const Maintenance = () => {
         setCurrentIssue({ ...currentIssue, [name]: value });
     };
 
-    const handleSave = (e) => {
+    const handleStudentSelect = (e) => {
+        const selectedName = e.target.value;
+        const student = students.find(s => s.studentName === selectedName || s.name === selectedName);
+
+        setCurrentIssue({
+            ...currentIssue,
+            studentName: selectedName,
+            // Auto-fill room/hostel if available in student data
+            roomNumber: student?.roomNumber || student?.roomNo || currentIssue.roomNumber,
+            hostelName: student?.hostelName || student?.hostel?.hostelName || currentIssue.hostelName
+        });
+    };
+
+    const handleSave = async (e) => {
         e.preventDefault();
-        if (isNewIssue) {
-            // Add new issue
-            const newIssue = {
-                id: issues.length + 1,
-                ...currentIssue
-            };
-            setIssues(prev => [...prev, newIssue]);
-        } else {
-            // Update existing issue
-            setIssues(prev => prev.map(i => i.id === currentIssue.id ? currentIssue : i));
+        try {
+            if (isNewIssue) {
+                await campusService.createComplaint(currentIssue);
+            } else {
+                await campusService.updateComplaint(currentIssue.id, currentIssue.status, currentIssue.remarks);
+            }
+            loadComplaints();
+            setShowModal(false);
+            setCurrentIssue(null);
+            setIsNewIssue(false);
+        } catch (error) {
+            console.error("Failed to save complaint", error);
+            alert("Failed to save complaint");
         }
-        setShowModal(false);
-        setCurrentIssue(null);
-        setIsNewIssue(false);
     };
 
     const columns = [
+        { header: 'Student Name', accessor: 'studentName', render: (row) => <span className="fw-600 text-primary">{row.studentName || 'N/A'}</span> },
         { header: 'Hostel Name', accessor: 'hostelName', render: (row) => <span className="fw-500">{row.hostelName}</span> },
         { header: 'Room No.', accessor: 'roomNumber' },
         {
@@ -79,6 +110,7 @@ const Maintenance = () => {
                 let badgeClass = 'bg-secondary bg-opacity-10 text-secondary';
                 if (row.status === 'Resolved') badgeClass = 'bg-success bg-opacity-10 text-success';
                 if (row.status === 'In Progress') badgeClass = 'bg-primary bg-opacity-10 text-primary';
+                if (row.status === 'Closed') badgeClass = 'bg-dark bg-opacity-10 text-dark';
                 return <span className={`badge rounded-pill px-3 py-2 fw-bold ${badgeClass}`}>{row.status}</span>;
             }
         },
@@ -97,7 +129,7 @@ const Maintenance = () => {
         <div className="container-fluid py-4 animate-in">
             <header className="mb-4 d-flex justify-content-between align-items-center">
                 <div>
-                    <h3 className="fw-bold text-main mb-1">Maintenance & Issues</h3>
+                    <h3 className="fw-bold text-main mb-1">Complaints & Issues</h3>
                     <p className="text-muted small">Track and resolve facility-related complaints and repair requests.</p>
                 </div>
             </header>
@@ -131,6 +163,28 @@ const Maintenance = () => {
                             <div className="p-4">
                                 <form onSubmit={handleSave}>
                                     <div className="row g-4">
+                                        <div className="col-md-12">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Student Name</label>
+                                            <select
+                                                className="form-select"
+                                                name="studentName"
+                                                value={currentIssue.studentName || ''}
+                                                onChange={handleStudentSelect}
+                                                required
+                                                disabled={!isNewIssue}
+                                            >
+                                                <option value="">Select Student...</option>
+                                                {students && students.length > 0 ? (
+                                                    students.map((s, idx) => (
+                                                        <option key={s.id || idx} value={s.studentName || s.name}>
+                                                            {s.studentName || s.name} {s.roomNumber ? `(Room: ${s.roomNumber})` : ''}
+                                                        </option>
+                                                    ))
+                                                ) : (
+                                                    <option disabled>No students found</option>
+                                                )}
+                                            </select>
+                                        </div>
                                         <div className="col-md-6">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Hostel Name</label>
                                             <input type="text" className="form-control" name="hostelName" value={currentIssue.hostelName} onChange={handleInputChange} placeholder="e.g. Boys Luxury Residency" required />
@@ -171,6 +225,7 @@ const Maintenance = () => {
                                                 <option value="Open">🆕 Open Ticket</option>
                                                 <option value="In Progress">⚙️ In Progress</option>
                                                 <option value="Resolved">✅ Resolved</option>
+                                                <option value="Closed">🔒 Closed</option>
                                             </select>
                                         </div>
                                         <div className="col-md-12">
@@ -191,7 +246,7 @@ const Maintenance = () => {
                 </div>
             )}
 
-            <style jsx>{`
+            <style>{`
                 .fw-600 { font-weight: 600; }
                 .fw-500 { font-weight: 500; }
                 .smaller { font-size: 0.7rem; }
@@ -200,4 +255,4 @@ const Maintenance = () => {
     );
 };
 
-export default Maintenance;
+export default Complaints;

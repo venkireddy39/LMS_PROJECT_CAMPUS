@@ -3,9 +3,11 @@ import { Link, useLocation } from 'react-router-dom';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import { useTheme } from '../../context/ThemeContext';
 import { FaSun, FaMoon } from 'react-icons/fa';
+import { useAuth } from '../../context/AuthContext';
 
 const Navbar = () => {
     const { isDarkMode, toggleTheme } = useTheme();
+    const { logout, user } = useAuth();
     const location = useLocation();
     const [activeHash, setActiveHash] = React.useState(window.location.hash.replace('#', '') || 'dashboard');
 
@@ -19,11 +21,11 @@ const Navbar = () => {
 
     const menuItems = [
         { path: 'dashboard', label: 'Dashboard', icon: 'bi-speedometer2' },
+        { path: 'hostels', label: 'Hostels', icon: 'bi-building' },
         { path: 'rooms', label: 'Rooms', icon: 'bi-door-open' },
         { path: 'students', label: 'Students', icon: 'bi-people' },
         { path: 'fees', label: 'Fees', icon: 'bi-cash-coin' },
-        { path: 'security', label: 'Security', icon: 'bi-shield-lock' },
-        { path: 'maintenance', label: 'Maintenance', icon: 'bi-tools' },
+        { path: 'complaints', label: 'Complaints', icon: 'bi-tools' },
         { path: 'attendance', label: 'Attendance', icon: 'bi-calendar-check' },
         { path: 'health', label: 'Health', icon: 'bi-heart-pulse' },
         { path: 'parent-visits', label: 'Visits', icon: 'bi-people' },
@@ -89,7 +91,7 @@ const Navbar = () => {
                             <a href="#" className="d-flex align-items-center text-decoration-none dropdown-toggle glass-card p-1 pe-3 rounded-pill border" id="dropdownUser1" data-bs-toggle="dropdown">
                                 <img src="https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=80&q=80" alt="admin" width="36" height="36" className="rounded-circle me-2 object-fit-cover" />
                                 <div className="d-none d-sm-block">
-                                    <p className="mb-0 small fw-bold text-main">Super Admin</p>
+                                    <p className="mb-0 small fw-bold text-main">{user?.name || user?.email || 'Super Admin'}</p>
                                     <p className="mb-0 smaller text-muted" style={{ fontSize: '10px' }}>Online</p>
                                 </div>
                             </a>
@@ -97,14 +99,14 @@ const Navbar = () => {
                                 <li><a className="dropdown-item rounded-2 text-main" href="#"><i className="bi bi-person me-2"></i>My Profile</a></li>
                                 <li><a className="dropdown-item rounded-2 text-main" href="#"><i className="bi bi-gear me-2"></i>Settings</a></li>
                                 <li><hr className="dropdown-divider mx-2 border-secondary opacity-25" /></li>
-                                <li><a className="dropdown-item rounded-2 text-danger" href="#"><i className="bi bi-box-arrow-right me-2"></i>Log Out</a></li>
+                                <li><button className="dropdown-item rounded-2 text-danger bg-transparent border-0 w-100 text-start" onClick={logout}><i className="bi bi-box-arrow-right me-2"></i>Log Out</button></li>
                             </ul>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <style jsx>{`
+            <style>{`
                 .nav-link.hover-bg-light:hover {
                     background: rgba(0,0,0,0.04);
                     color: var(--primary) !important;

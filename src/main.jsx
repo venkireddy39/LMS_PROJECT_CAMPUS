@@ -4,8 +4,12 @@ import 'bootstrap/dist/css/bootstrap.min.css';
 import './index.css'
 import App from './App.jsx'
 
+import ErrorBoundary from './components/common/ErrorBoundary';
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <App />
+    <ErrorBoundary>
+      <App />
+    </ErrorBoundary>
   </StrictMode>,
 )

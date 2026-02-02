@@ -1,0 +1,279 @@
+// Config handled in vite.config.js via proxy and .env
+// Config handled in vite.config.js via proxy and .env
+const BASE_URL = `/campus`;
+
+/**
+ * Generic request handler for API calls
+ * @param {string} endpoint - The endpoint path (e.g., '/hostels')
+ * @param {object} options - Fetch options (method, headers, body)
+ * @returns {Promise<any>} - The response data
+ */
+const request = async (endpoint, options = {}) => {
+    // Allow overriding base URL for different services (e.g. /student)
+    const { baseUrl = BASE_URL, ...fetchOptions } = options;
+    const url = `${baseUrl}${endpoint}`;
+    const token = localStorage.getItem('token') || import.meta.env.VITE_JWT_TOKEN;
+    if (endpoint === '/students' || endpoint === '/login') {
+        console.log(`[Request] ${endpoint} Token: ${token ? 'Present (' + token.substring(0, 10) + '...)' : 'Missing'}`);
+    }
+    const defaultHeaders = {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+    };
+
+    const config = {
+        ...fetchOptions,
+        headers: {
+            ...defaultHeaders,
+            ...fetchOptions.headers,
+        },
+    };
+
+    try {
+        const response = await fetch(url, config);
+
+        if (!response.ok) {
+            console.error(`Status ${response.status} from ${endpoint}. Logging out disabled for debugging.`);
+            // localStorage.removeItem('token');
+            // localStorage.removeItem('user');
+            // if (window.location.pathname !== '/login') {
+            //     window.location.href = '/login';
+            // }
+            const errorText = await response.text();
+            throw new Error(errorText || `HTTP Error: ${response.status}`);
+        }
+
+        const contentType = response.headers.get("content-type");
+        if (contentType && contentType.includes("application/json")) {
+            return await response.json();
+        }
+        return await response.text();
+    } catch (error) {
+        console.error(`API Call Error [${endpoint}]:`, error);
+        throw error;
+    }
+};
+
+export const campusService = {
+    // ================= HOSTEL =================
+
+    createHostel: (hostelData) => request('/hostel', {
+        method: 'POST',
+        body: JSON.stringify(hostelData)
+    }),
+
+    getAllHostels: () => request('/hostels', { method: 'GET' }),
+
+    getHostelById: (id) => request(`/hostels/${id}`, { method: 'GET' }),
+
+    updateHostel: (id, hostelData) => request(`/hostel/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(hostelData)
+    }),
+
+    updateHostelPartial: (id, hostelData) => request(`/hostel/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(hostelData)
+    }),
+
+    deleteHostel: (id) => request(`/hostel/${id}`, { method: 'DELETE' }),
+
+    // ================= HOSTEL ROOM =================
+
+    createRoom: (roomData) => request('/room', {
+        method: 'POST',
+        body: JSON.stringify(roomData)
+    }),
+
+    getAllRooms: () => request('/rooms', { method: 'GET' }),
+
+    getRoomById: (id) => request(`/rooms/${id}`, { method: 'GET' }),
+
+    updateRoom: (id, roomData) => request(`/rooms/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(roomData)
+    }),
+
+    updateRoomPartial: (id, roomData) => request(`/rooms/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(roomData)
+    }),
+
+    updateRoomStatus: (id, status) => request(`/rooms/${id}/status?status=${status}`, {
+        method: 'PATCH'
+    }),
+
+    deleteRoom: (id) => request(`/rooms/${id}`, { method: 'DELETE' }),
+
+    // ================= HOSTEL ATTENDANCE =================
+
+    markAttendance: (attendanceData) => request('/attendance', {
+        method: 'POST',
+        body: JSON.stringify(attendanceData)
+    }),
+
+    getAllAttendance: (date = null) => {
+        const query = date ? `?date=${date}` : '';
+        return request(`/attendances${query}`, { method: 'GET' });
+    },
+
+    getAttendanceById: (id) => request(`/attendance/${id}`, { method: 'GET' }),
+
+    updateAttendance: (id, attendanceData) => request(`/attendance/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(attendanceData)
+    }),
+
+    deleteAttendance: (id) => request(`/attendance/${id}`, { method: 'DELETE' }),
+
+    // ================= HOSTEL COMPLAINTS =================
+
+    createComplaint: (complaintData) => request('/complaint', { // Maps to POST /complaint (root of controller) for complaints per backend code
+        method: 'POST',
+        body: JSON.stringify(complaintData)
+    }),
+
+    getAllComplaints: (status = null) => {
+        const query = status ? `?status=${status}` : '';
+        return request(`/complaints${query}`, { method: 'GET' });
+    },
+
+    getComplaintById: (id) => request(`/complaint/${id}`, { method: 'GET' }),
+
+    updateComplaintFull: (id, complaintData) => request(`/complaint/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(complaintData)
+    }),
+
+    updateComplaint: (id, status = null, adminRemarks = null) => {
+        const params = new URLSearchParams();
+        if (status) params.append('status', status);
+        if (adminRemarks) params.append('adminRemarks', adminRemarks);
+        return request(`/complaint/${id}?${params.toString()}`, { method: 'PATCH' });
+    },
+
+    deleteComplaint: (id) => request(`/complaint/${id}`, { method: 'DELETE' }),
+
+    // ================= MESS MENU =================
+
+    createMenu: (menuData) => request('/mess-menu', {
+        method: 'POST',
+        body: JSON.stringify(menuData)
+    }),
+
+    getAllMenus: () => request('/mess-menus', { method: 'GET' }),
+
+    getMenuById: (id) => request(`/mess-menus/${id}`, { method: 'GET' }),
+
+    updateMenuFull: (id, menuData) => request(`/mess-menu/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(menuData)
+    }),
+
+    updateMenu: (id, menuData) => request(`/mess-menu/${id}`, {
+        method: 'PATCH',
+        body: JSON.stringify(menuData)
+    }),
+
+    deleteMenu: (id) => request(`/mess-menu/${id}`, { method: 'DELETE' }),
+
+    // ================= STUDENT HEALTH INCIDENTS =================
+
+    createIncident: (incidentData) => request('/health', {
+        method: 'POST',
+        body: JSON.stringify(incidentData)
+    }),
+
+    getAllIncidents: () => request('/health', { method: 'GET' }),
+
+    getIncidentById: (id) => request(`/health/${id}`, { method: 'GET' }),
+
+    updateIncidentFull: (id, incidentData) => request(`/health/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(incidentData)
+    }),
+
+    updateIncident: (id, status = null, clinicalNotes = null) => {
+        const params = new URLSearchParams();
+        if (status) params.append('status', status);
+        if (clinicalNotes) params.append('clinicalNotes', clinicalNotes);
+        return request(`/health/${id}?${params.toString()}`, { method: 'PATCH' });
+    },
+
+    deleteIncident: (id) => request(`/health/${id}`, { method: 'DELETE' }),
+
+    // ================= STUDENT HOSTEL ALLOCATION =================
+
+    createAllocation: (allocationData) => request('/allocations', {
+        method: 'POST',
+        body: JSON.stringify(allocationData)
+    }),
+
+    getAllAllocations: (status = null) => {
+        const query = status ? `?status=${status}` : '';
+        return request(`/allocations${query}`, { method: 'GET' });
+    },
+
+    getAllocationById: (id) => request(`/allocations/${id}`, { method: 'GET' }),
+
+    updateAllocation: (id, allocationData) => request(`/allocations/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(allocationData)
+    }),
+
+    updateAllocationStatus: (id, status, leaveDate = null) => {
+        const params = new URLSearchParams();
+        params.append('status', status);
+        if (leaveDate) params.append('leaveDate', leaveDate);
+        return request(`/allocations/${id}/status?${params.toString()}`, { method: 'PATCH' });
+    },
+
+    updatePayment: (id, amountPaid, paymentDate = null) => {
+        const params = new URLSearchParams();
+        params.append('amountPaid', amountPaid);
+        if (paymentDate) params.append('paymentDate', paymentDate);
+        return request(`/allocations/${id}/payment?${params.toString()}`, { method: 'PATCH' });
+    },
+
+    deleteAllocation: (id) => request(`/allocations/${id}`, { method: 'DELETE' }),
+
+    // ================= STUDENT VISIT ENTRY =================
+
+    createVisit: (visitData) => request('/visits', {
+        method: 'POST',
+        body: JSON.stringify(visitData)
+    }),
+
+    getAllVisits: (date = null) => {
+        const query = date ? `?date=${date}` : '';
+        return request(`/visits${query}`, { method: 'GET' });
+    },
+
+    getVisitById: (id) => request(`/visits/${id}`, { method: 'GET' }),
+
+    updateVisit: (id, visitData) => request(`/visits/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(visitData)
+    }),
+
+    updateVisitStatus: (id, status) => request(`/visits/${id}/status?status=${status}`, {
+        method: 'PATCH'
+    }),
+
+    deleteVisit: (id) => request(`/visits/${id}`, { method: 'DELETE' }),
+
+    // ================= STUDENT DETAILS (VIA /admin) =================
+    getAllStudents: () => request('/getstudents', {
+        method: 'GET',
+        baseUrl: '/admin'
+    }),
+
+    // ================= AUTHENTICATION =================
+    login: (credentials) => request('/login', {
+        method: 'POST',
+        baseUrl: '/auth',
+        body: JSON.stringify(credentials)
+    }),
+};
+
+export default campusService;

@@ -1,34 +1,74 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import DataTable from '../common/DataTable';
-import { roomData } from '../../data/hostelData';
+import campusService from '../../services/campusService';
 import { useStudentContext } from '../../context/StudentContext';
+import { FaEdit } from 'react-icons/fa';
 
 const RoomManagement = () => {
     const { students } = useStudentContext();
-    const [rooms, setRooms] = React.useState(roomData);
+    const [rooms, setRooms] = React.useState([]);
+
+    useEffect(() => {
+        loadRooms();
+    }, []);
+
+    const loadRooms = async () => {
+        try {
+            const data = await campusService.getAllRooms();
+            const roomsData = Array.isArray(data) ? data : (data.data || []);
+
+            // Map data to ensure occupied and vacant fields exist
+            const processedRooms = roomsData.map(room => {
+                const capacity = room.capacity || room.sharingType || 0;
+                // Check if backend provides occupied count, otherwise default to 0
+                // Use 'currentOccupancy' as potential fallback key
+                const occupied = room.occupied !== undefined ? room.occupied : (room.currentOccupancy || 0);
+                // Calculate vacant if not provided
+                const vacant = room.vacant !== undefined ? room.vacant : Math.max(0, capacity - occupied);
+
+                return {
+                    ...room,
+                    occupied,
+                    vacant,
+                    // Ensure status is display-ready if needed
+                    status: room.status || (occupied >= capacity ? 'Full' : 'Available')
+                };
+            });
+
+            setRooms(processedRooms);
+        } catch (error) {
+            console.error("Failed to load rooms", error);
+        }
+    };
 
     // Synchronize room occupancy with context students
+    // Note: If backend handles occupancy, this might be redundant, but keeping for frontend sync if needed
     const syncRoomsWithStudents = React.useCallback((currentRooms) => {
         return currentRooms.map(room => {
+            // If backend already provides occupancy, we might trust it. 
+            // However, if we want real-time sync with local student context changes:
             const occupiedCount = students.filter(s =>
                 s.roomNumber === room.roomNumber && s.stayStatus === 'Active'
             ).length;
 
-            const vacant = room.capacity - occupiedCount;
-            let status = 'Partially Filled';
-            if (occupiedCount === 0) status = 'Available';
-            if (occupiedCount >= room.capacity) status = 'Full';
+            // If backend data is sufficient, we can skip this calculation
+            // For now, assuming backend 'occupied' might need client-side adjustment if student context is fresher
+            // But let's rely on backend data primarily if possible. 
+            // If the logic was purely frontend before, we should check if backend returns 'occupied' count.
+            // campusService.getAllRooms() should return similar structure.
 
             return {
                 ...room,
-                occupied: occupiedCount,
-                vacant: vacant,
-                status: status
+                // occupied: occupiedCount, // Commenting out override to trust backend first
+                // vacant: room.capacity - occupiedCount,
+                // status: occupiedCount >= room.capacity ? 'Full' : (occupiedCount === 0 ? 'Available' : 'Partially Filled')
             };
         });
     }, [students]);
 
-    const displayRooms = React.useMemo(() => syncRoomsWithStudents(rooms), [rooms, syncRoomsWithStudents]);
+    // Use backend data directly for now to ensure we test API integration
+    const displayRooms = rooms; // React.useMemo(() => syncRoomsWithStudents(rooms), [rooms, syncRoomsWithStudents]);
+
 
     const [filterStatus, setFilterStatus] = React.useState('All');
     const [filterSharing, setFilterSharing] = React.useState('All');
@@ -44,7 +84,7 @@ const RoomManagement = () => {
             result = result.filter(room => room.status === filterStatus);
         }
         if (filterSharing !== 'All') {
-            result = result.filter(room => room.sharingType.toString() === filterSharing);
+            result = result.filter(room => room.sharingType && room.sharingType.toString() === filterSharing);
         }
 
         // Apply Sorting
@@ -74,38 +114,77 @@ const RoomManagement = () => {
     const [newRoom, setNewRoom] = React.useState({
         roomNumber: '',
         sharingType: '',
-        capacity: '',
-        occupied: 0
+        occupied: 0,
+        status: 'AVAILABLE'
     });
+    const [isEditing, setIsEditing] = React.useState(false);
+    const [editId, setEditId] = React.useState(null);
+
+    const resetForm = () => {
+        setNewRoom({ roomNumber: '', sharingType: '', occupied: 0, status: 'AVAILABLE' });
+        setIsEditing(false);
+        setEditId(null);
+    };
+
+    const handleEdit = (room) => {
+        const sharingMap = { 'SINGLE': 1, 'DOUBLE': 2, 'TRIPLE': 3, 'QUAD': 4 };
+        const sharingTypeVal = sharingMap[room.sharingType] || room.sharingType;
+
+        setIsEditing(true);
+        setEditId(room.id);
+        setNewRoom({
+            roomNumber: room.roomNumber,
+            sharingType: sharingTypeVal,
+            occupied: room.occupied,
+            status: room.status
+        });
+        setShowModal(true);
+    };
 
     const handleAddRoomChange = (e) => {
         const { name, value } = e.target;
         setNewRoom({ ...newRoom, [name]: value });
     };
 
-    const handleAddRoomSubmit = (e) => {
+    const handleAddRoomSubmit = async (e) => {
         e.preventDefault();
-        const capacity = parseInt(newRoom.capacity);
         const occupied = parseInt(newRoom.occupied);
-        const sharingType = parseInt(newRoom.sharingType);
+        const sharingTypeInt = parseInt(newRoom.sharingType);
+        const capacity = sharingTypeInt; // Auto-infer capacity from sharing type
 
         const vacant = capacity - occupied;
-        let status = 'Partially Filled';
-        if (occupied === 0) status = 'Available';
-        if (occupied === capacity) status = 'Full';
 
-        const roomToAdd = {
+        // Map numeric value to Backend Enum String
+        const sharingTypeMap = {
+            1: 'SINGLE',
+            2: 'DOUBLE',
+            3: 'TRIPLE',
+            4: 'QUAD'
+        };
+        const sharingType = sharingTypeMap[sharingTypeInt] || 'SINGLE';
+
+        const roomData = {
             ...newRoom,
             sharingType,
             capacity,
             occupied,
             vacant,
-            status
+            status: newRoom.status
         };
 
-        setRooms([...rooms, roomToAdd]);
-        setShowModal(false);
-        setNewRoom({ roomNumber: '', sharingType: '', capacity: '', occupied: 0 });
+        try {
+            if (isEditing) {
+                await campusService.updateRoom(editId, roomData);
+            } else {
+                await campusService.createRoom(roomData);
+            }
+            loadRooms();
+            setShowModal(false);
+            resetForm();
+        } catch (error) {
+            console.error("Failed to save room", error);
+            alert("Failed to save room");
+        }
     };
 
     const columns = [
@@ -115,7 +194,7 @@ const RoomManagement = () => {
             accessor: 'sharingType',
             render: (row) => <span className="fw-500">{row.sharingType} Sharing</span>
         },
-        { header: 'Capacity', accessor: 'capacity' },
+        // Removed Capacity Column
         {
             header: 'Occupied',
             accessor: 'occupied',
@@ -137,6 +216,19 @@ const RoomManagement = () => {
 
                 return <span className={`badge rounded-pill px-3 py-2 fw-bold ${badgeClass}`}>{row.status}</span>;
             }
+        },
+        {
+            header: 'Actions',
+            accessor: 'actions',
+            render: (row) => (
+                <button
+                    className="btn btn-sm btn-warning"
+                    onClick={() => handleEdit(row)}
+                    title="Edit Room"
+                >
+                    <FaEdit />
+                </button>
+            )
         },
     ];
 
@@ -186,7 +278,7 @@ const RoomManagement = () => {
                         >
                             <option value="roomNumber">Room No.</option>
                             <option value="sharingType">Sharing</option>
-                            <option value="capacity">Capacity</option>
+                            {/* Removed Capacity Sort Option */}
                             <option value="occupied">Occupied</option>
                             <option value="status">Status</option>
                         </select>
@@ -204,9 +296,10 @@ const RoomManagement = () => {
                         <div className="modal-content glass-card border-0 shadow-2xl p-0" style={{ overflow: 'hidden' }}>
                             <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-primary bg-opacity-10">
                                 <h5 className="modal-title fw-bold text-main mb-0">
-                                    <i className="bi bi-house-add-fill text-primary me-2"></i>Provision New Room
+                                    <i className={`${isEditing ? 'bi-pencil-square' : 'bi-house-add-fill'} text-primary me-2`}></i>
+                                    {isEditing ? 'Update Room Details' : 'Provision New Room'}
                                 </h5>
-                                <button type="button" className="btn-close shadow-none" onClick={() => setShowModal(false)}></button>
+                                <button type="button" className="btn-close shadow-none" onClick={() => { setShowModal(false); resetForm(); }}></button>
                             </div>
                             <div className="p-4">
                                 <form onSubmit={handleAddRoomSubmit}>
@@ -214,32 +307,40 @@ const RoomManagement = () => {
                                         <label className="form-label fw-600 smaller text-uppercase text-muted">Room Number</label>
                                         <input type="text" className="form-control" name="roomNumber" value={newRoom.roomNumber} onChange={handleAddRoomChange} placeholder="e.g. 204-B" required />
                                     </div>
-                                    <div className="row g-3 mb-4">
-                                        <div className="col-md-6">
-                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Sharing Type</label>
-                                            <select className="form-select" name="sharingType" value={newRoom.sharingType} onChange={handleAddRoomChange} required>
-                                                <option value="">Select...</option>
-                                                <option value="1">Single</option>
-                                                <option value="2">Double</option>
-                                                <option value="3">Triple</option>
-                                                <option value="4">Quad</option>
-                                            </select>
-                                        </div>
-                                        <div className="col-md-6">
-                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Bed Capacity</label>
-                                            <input type="number" className="form-control" name="capacity" value={newRoom.capacity} onChange={handleAddRoomChange} placeholder="Total Beds" required />
-                                        </div>
+                                    <div className="mb-4">
+                                        <label className="form-label fw-600 smaller text-uppercase text-muted">Sharing Type</label>
+                                        <select className="form-select" name="sharingType" value={newRoom.sharingType} onChange={handleAddRoomChange} required>
+                                            <option value="">Select...</option>
+                                            <option value="1">Single</option>
+                                            <option value="2">Double</option>
+                                            <option value="3">Triple</option>
+                                            <option value="4">Quad</option>
+                                        </select>
                                     </div>
                                     <div className="mb-4">
                                         <label className="form-label fw-600 smaller text-uppercase text-muted">Currently Occupied</label>
-                                        <input type="number" className="form-control" name="occupied" value={newRoom.occupied} onChange={handleAddRoomChange} required min="0" max={newRoom.capacity} />
-                                        <div className="form-text smaller text-muted pt-2 border-top mt-2">
-                                            <i className="bi bi-info-circle me-1"></i> System will auto-calculate vacancy status.
-                                        </div>
+                                        <input
+                                            type="number"
+                                            className="form-control"
+                                            name="occupied"
+                                            value={newRoom.occupied}
+                                            onChange={handleAddRoomChange}
+                                            required
+                                            min="0"
+                                            max={newRoom.sharingType || 10}
+                                        />
+                                    </div>
+                                    <div className="mb-4">
+                                        <label className="form-label fw-600 smaller text-uppercase text-muted">Status</label>
+                                        <select className="form-select" name="status" value={newRoom.status} onChange={handleAddRoomChange} required>
+                                            <option value="AVAILABLE">Available</option>
+                                            <option value="PARTIALLY_FILLED">Partially Filled</option>
+                                            <option value="FULL">Full</option>
+                                        </select>
                                     </div>
                                     <div className="mt-5 d-flex gap-2 justify-content-end">
-                                        <button type="button" className="btn btn-light px-4 rounded-pill fw-500" onClick={() => setShowModal(false)}>Discard</button>
-                                        <button type="submit" className="btn-premium btn-premium-primary rounded-pill px-5">Register Room</button>
+                                        <button type="button" className="btn btn-light px-4 rounded-pill fw-500" onClick={() => { setShowModal(false); resetForm(); }}>Discard</button>
+                                        <button type="submit" className="btn-premium btn-premium-primary rounded-pill px-5">{isEditing ? 'Update Room' : 'Register Room'}</button>
                                     </div>
                                 </form>
                             </div>
@@ -248,7 +349,7 @@ const RoomManagement = () => {
                 </div>
             )}
 
-            <style jsx>{`
+            <style>{`
                 .fw-600 { font-weight: 600; }
                 .fw-500 { font-weight: 500; }
                 .smaller { font-size: 0.7rem; }

@@ -276,3 +276,18 @@ h6 {
 ::-webkit-scrollbar-thumb:hover {
   background: #94a3b8;
 }
+
+/* Campus Home Styles */
+.campus-single-page {
+  scroll-behavior: smooth;
+}
+
+.section-padding {
+  padding-bottom: 3rem;
+  scroll-margin-top: 80px;
+  /* Adjust based on navbar height */
+}
+
+.border-top {
+  border-top: 1px solid rgba(0, 0, 0, 0.05) !important;
+}

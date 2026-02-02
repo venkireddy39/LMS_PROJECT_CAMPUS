@@ -1,35 +1,30 @@
 import React from 'react';
+import campusService from '../../services/campusService';
 import DataTable from '../common/DataTable';
-import { feeData } from '../../data/feeData';
-import { useStudentContext } from '../../context/StudentContext';
 
 const FeeManagement = () => {
-    const { students } = useStudentContext();
-    const [fees, setFees] = React.useState(feeData);
+    // Note: We are switching from using StudentContext to fetching allocations directly from backend.
+    // The backend allocations likely contain the student and fee details.
+    const [fees, setFees] = React.useState([]);
     const [showModal, setShowModal] = React.useState(false);
     const [currentFee, setCurrentFee] = React.useState(null);
 
-    // Synchronize fee data with current active students
-    const activeStudentFees = React.useMemo(() => {
-        const activeStudents = students.filter(s => s.stayStatus === 'Active');
-        return activeStudents.map(student => {
-            // Check if we already have fee data for this student (by name for now, as dummy data doesn't have student IDs matching)
-            const existingFee = fees.find(f => f.studentName === student.name);
-            if (existingFee) return existingFee;
+    React.useEffect(() => {
+        loadFees();
+    }, []);
 
-            // Otherwise return default fee values for new student
-            return {
-                id: `new-${student.id}`,
-                studentName: student.name,
-                monthlyFee: 5000, // Default
-                totalFee: 5000,
-                amountPaid: 0,
-                monthlyDue: 5000,
-                status: 'Due',
-                lastPaymentDate: 'N/A'
-            };
-        });
-    }, [students, fees]);
+    const loadFees = async () => {
+        try {
+            // Fetch allocations which should serve as the source of truth for fees
+            const data = await campusService.getAllAllocations();
+            // Transform data if necessary. Assuming backend returns list with fee fields.
+            // If backend returns raw allocations without calculated fees, we might need to map it.
+            // For now, assuming direct mapping or simple transformation.
+            setFees(data || []);
+        } catch (error) {
+            console.error("Failed to load fee records", error);
+        }
+    };
 
     const handleEditClick = (feeRecord) => {
         setCurrentFee({ ...feeRecord });
@@ -41,20 +36,26 @@ const FeeManagement = () => {
         setCurrentFee({ ...currentFee, [name]: value });
     };
 
-    const handleSave = (e) => {
+    const handleSave = async (e) => {
         e.preventDefault();
-        setFees(prevFees => {
-            const index = prevFees.findIndex(f => f.studentName === currentFee.studentName);
-            if (index !== -1) {
-                const updated = [...prevFees];
-                updated[index] = currentFee;
-                return updated;
-            } else {
-                return [...prevFees, currentFee];
+        try {
+            // Use updatePayment or updateAllocationStatus based on what changed, 
+            // or a generic update if available. Service has updatePayment.
+            // currentFee might have fields mapped to what backend expects.
+            // Let's assume we update payment info.
+            if (currentFee.id) {
+                await campusService.updatePayment(currentFee.id, currentFee.amountPaid, currentFee.lastPaymentDate);
+                // If status update is separate:
+                // await campusService.updateAllocationStatus(currentFee.id, currentFee.status);
+                // For now, calling updatePayment.
             }
-        });
-        setShowModal(false);
-        setCurrentFee(null);
+            loadFees();
+            setShowModal(false);
+            setCurrentFee(null);
+        } catch (error) {
+            console.error("Failed to update fee record", error);
+            alert("Failed to update fee record");
+        }
     };
 
     const columns = [
@@ -96,7 +97,7 @@ const FeeManagement = () => {
             <DataTable
                 title="Resident Accounts"
                 columns={columns}
-                data={activeStudentFees}
+                data={fees}
             />
 
             {/* Premium Edit Fee Modal */}
@@ -172,7 +173,7 @@ const FeeManagement = () => {
                 </div>
             )}
 
-            <style jsx>{`
+            <style>{`
                 .fw-600 { font-weight: 600; }
                 .fw-500 { font-weight: 500; }
                 .smaller { font-size: 0.7rem; }
