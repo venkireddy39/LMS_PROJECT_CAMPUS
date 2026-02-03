@@ -20,11 +20,16 @@ const DataTable = ({ columns, data, title, actions }) => {
                         <tbody>
                             {data.map((row, rowIndex) => (
                                 <tr key={rowIndex}>
-                                    {columns.map((col, colIndex) => (
-                                        <td key={colIndex}>
-                                            {col.render ? col.render(row) : <span className="fw-500">{row[col.accessor]}</span>}
-                                        </td>
-                                    ))}
+                                    {columns.map((col, colIndex) => {
+                                        const cellValue = typeof col.accessor === 'function'
+                                            ? col.accessor(row)
+                                            : row[col.accessor];
+                                        return (
+                                            <td key={colIndex}>
+                                                {col.render ? col.render(row) : <span className="fw-500">{cellValue}</span>}
+                                            </td>
+                                        );
+                                    })}
                                 </tr>
                             ))}
                         </tbody>

@@ -27,43 +27,93 @@ export const StudentProvider = ({ children }) => {
 
     const loadStudents = async () => {
         try {
-            // Fetch student details from the student service
-            const data = await campusService.getAllStudents();
-            console.log("DEBUG: Raw API Student Data:", data); // Debug log
+            // Fetch student details AND parent details in parallel
+            const [studentsData, parentsData] = await Promise.all([
+                campusService.getAllStudents(),
+                campusService.getAllParents().catch(err => {
+                    console.error("Failed to fetch parents:", err);
+                    return []; // Return empty array if parents fetch fails
+                })
+            ]);
 
-            let validData = [];
-            if (Array.isArray(data)) {
-                validData = data;
-            } else if (data && Array.isArray(data.data)) {
-                // Handle wrapped response like { data: [...] }
-                validData = data.data;
-            } else if (data && Array.isArray(data.students)) {
-                // Handle wrapped response like { students: [...] }
-                validData = data.students;
+            console.log("DEBUG: Raw API Student Data:", studentsData);
+            console.log("DEBUG: Raw API Parent Data:", parentsData);
+
+            let validStudents = [];
+            if (Array.isArray(studentsData)) {
+                validStudents = studentsData;
+            } else if (studentsData && Array.isArray(studentsData.data)) {
+                validStudents = studentsData.data;
+            } else if (studentsData && Array.isArray(studentsData.students)) {
+                validStudents = studentsData.students;
             }
 
-            if (validData.length > 0) {
-                // Map the student data to the format used by the UI
-                const mappedStudents = validData.map(s => ({
-                    ...s,
-                    // Prioritize allocationId if it exists, as this is likely the primary key for the allocation record
-                    id: s.allocationId || s.studentId || s.userId || s.id,
-                    studentId: s.studentId, // Keep original studentId accessible
-                    // Access nested user object if present
-                    firstname: s.user?.firstName || s.firstName || '',
-                    lastname: s.user?.lastName || s.lastName || '',
-                    email: s.user?.email || s.email || '',
-                    // Extract father details from parents array if available
-                    fatherPhone: Array.isArray(s.parents) ? s.parents.find(p => p.relation === 'Father')?.phone : (s.father_phone || s.fatherPhone || ''),
-                    fatherName: Array.isArray(s.parents) ? s.parents.find(p => p.relation === 'Father')?.parentName : (s.father_name || s.fatherName || ''),
-                    // Fallbacks for older references
-                    studentName: (s.user?.firstName || s.firstName) || (s.user?.name || s.name) || 'Unknown',
-                    studentEmail: s.user?.email || s.email,
-                }));
-                console.log("DEBUG: Mapped Students:", mappedStudents);
+            // Create a lookup map for Parent Details based on Relation ID (relId)
+            // Structure expected from /getparents: [{ parent: { students: [{ relId: ... }] }, ... }, ...]
+            const relIdParentMap = new Map();
+
+            if (Array.isArray(parentsData)) {
+                parentsData.forEach(group => {
+                    if (group.parent) {
+                        const parentInfo = {
+                            name: `${group.parent.user?.firstName || ''} ${group.parent.user?.lastName || ''}`.trim(),
+                            phone: group.parent.user?.phone || '',
+                            email: group.parent.user?.email || ''
+                        };
+
+                        // Map each relationship ID associated with this parent to the parent info
+                        if (Array.isArray(group.parent.students)) {
+                            group.parent.students.forEach(rel => {
+                                if (rel.relId) {
+                                    relIdParentMap.set(rel.relId, parentInfo);
+                                }
+                            });
+                        }
+                    }
+                });
+            }
+
+            console.log("DEBUG: RelID Map Size:", relIdParentMap.size);
+
+            if (validStudents.length > 0) {
+                const mappedStudents = validStudents.map(s => {
+
+                    // Find parent by checking the student's 'parents' array for a matching relId
+                    let parent = { name: '', phone: '', email: '' };
+                    if (Array.isArray(s.parents)) {
+                        for (const pRel of s.parents) {
+                            if (pRel.relId && relIdParentMap.has(pRel.relId)) {
+                                parent = relIdParentMap.get(pRel.relId);
+                                break; // Found a matching parent, stop searching
+                            }
+                        }
+                    }
+
+                    return {
+                        ...s,
+                        id: s.allocationId || s.studentId || s.userId || s.id,
+                        studentId: s.studentId,
+                        firstname: s.user?.firstName || s.firstName || '',
+                        lastname: s.user?.lastName || s.lastName || '',
+                        email: s.user?.email || s.email || '',
+
+                        // Parent Details from the merged map
+                        fatherName: parent.name || (s.fatherName || ''),
+                        fatherPhone: parent.phone || (s.fatherPhone || ''),
+
+                        studentName: (s.user?.firstName || s.firstName) ? `${s.user?.firstName || s.firstName} ${s.user?.lastName || s.lastName || ''}`.trim() : (s.user?.name || s.name || 'Unknown'),
+                        studentEmail: s.user?.email || s.email,
+                        hostel: s.hostel || null,
+                        room: s.room || null,
+                        roomNumber: s.room?.roomNumber || s.roomNumber || '',
+                        status: s.status || 'ACTIVE',
+                    };
+                });
+
+                console.log("DEBUG: Mapped Students with Parents (via relId):", mappedStudents);
                 setStudents(mappedStudents);
             } else {
-                console.warn('Expected array for students but got:', data);
+                console.warn('Expected array for students but got:', studentsData);
                 setStudents([]);
             }
         } catch (error) {

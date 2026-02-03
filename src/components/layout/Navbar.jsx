@@ -43,7 +43,7 @@ const Navbar = () => {
 
     return (
         <nav className="navbar navbar-expand-lg glass-navbar sticky-top py-3">
-            <div className="container-fluid px-4">
+            <div className="container-fluid ps-2 pe-4">
                 <a href="#dashboard" onClick={(e) => { e.preventDefault(); handleScroll('dashboard'); }} className="navbar-brand fw-bold d-flex align-items-center text-primary fs-4">
                     <div className="bg-primary text-white p-2 rounded-3 me-2 d-flex align-items-center justify-content-center" style={{ width: '40px', height: '40px' }}>
                         <i className="bi bi-building"></i>
@@ -58,20 +58,16 @@ const Navbar = () => {
                 <div className="collapse navbar-collapse" id="navbarNav">
                     <ul className="navbar-nav mx-auto mb-2 mb-lg-0 gap-1">
                         {menuItems.map((item) => {
-                            const isActive = activeHash === item.path;
+                            const isActive = location.pathname === `/${item.path}` || (item.path === 'dashboard' && location.pathname === '/');
                             return (
                                 <li className="nav-item" key={item.path}>
-                                    <a
-                                        href={`#${item.path}`}
-                                        onClick={(e) => {
-                                            e.preventDefault();
-                                            handleScroll(item.path);
-                                        }}
+                                    <Link
+                                        to={`/${item.path === 'dashboard' ? '' : item.path}`}
                                         className={`nav-link px-3 rounded-pill d-flex align-items-center transition-all ${isActive ? 'bg-primary text-white shadow-sm' : 'text-muted hover-bg-light'}`}
                                     >
                                         <i className={`bi ${item.icon} me-2 ${isActive ? 'text-white' : 'text-primary'}`}></i>
                                         <span className="fw-500">{item.label}</span>
-                                    </a>
+                                    </Link>
                                 </li>
                             );
                         })}
@@ -98,8 +94,9 @@ const Navbar = () => {
                             <ul className="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-2 p-2 glass-card">
                                 <li><a className="dropdown-item rounded-2 text-main" href="#"><i className="bi bi-person me-2"></i>My Profile</a></li>
                                 <li><a className="dropdown-item rounded-2 text-main" href="#"><i className="bi bi-gear me-2"></i>Settings</a></li>
-                                <li><hr className="dropdown-divider mx-2 border-secondary opacity-25" /></li>
-                                <li><button className="dropdown-item rounded-2 text-danger bg-transparent border-0 w-100 text-start" onClick={logout}><i className="bi bi-box-arrow-right me-2"></i>Log Out</button></li>
+                                {/* <li><hr className="dropdown-divider mx-2 border-secondary opacity-25" /></li> */}
+                                {/* Logout button removed as requested */}
+                                {/* <li><button className="dropdown-item rounded-2 text-danger bg-transparent border-0 w-100 text-start" onClick={logout}><i className="bi bi-box-arrow-right me-2"></i>Log Out</button></li> */}
                             </ul>
                         </div>
                     </div>

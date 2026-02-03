@@ -5,6 +5,15 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 import Layout from './components/layout/Layout';
 import Dashboard from './components/campus/Dashboard';
 import Login from './components/auth/Login';
+import HostelManagement from './components/campus/HostelManagement';
+import RoomManagement from './components/campus/RoomManagement';
+import StudentDetails from './components/campus/StudentDetails';
+import FeeManagement from './components/campus/FeeManagement';
+import Complaints from './components/campus/Complaints';
+import Attendance from './components/campus/Attendance';
+import HealthIssues from './components/campus/HealthIssues';
+import ParentVisits from './components/campus/ParentVisits';
+import MessManagement from './components/campus/MessManagement';
 import CampusHome from './components/campus/CampusHome';
 import 'bootstrap/dist/css/bootstrap.min.css';
 import 'bootstrap/dist/js/bootstrap.bundle.min.js';
@@ -34,16 +43,17 @@ function App() {
                 <ProtectedRoute>
                   <Layout>
                     <Routes>
-                      <Route path="/" element={<CampusHome />} />
-                      <Route path="/hostels" element={<CampusHome />} />
-                      <Route path="/rooms" element={<CampusHome />} />
-                      <Route path="/students" element={<CampusHome />} />
-                      <Route path="/fees" element={<CampusHome />} />
-                      <Route path="/complaints" element={<CampusHome />} />
-                      <Route path="/attendance" element={<CampusHome />} />
-                      <Route path="/health" element={<CampusHome />} />
-                      <Route path="/parent-visits" element={<CampusHome />} />
-                      <Route path="/mess" element={<CampusHome />} />
+                      <Route path="/" element={<Dashboard />} />
+                      <Route path="/dashboard" element={<Navigate to="/" replace />} />
+                      <Route path="/hostels" element={<HostelManagement />} />
+                      <Route path="/rooms" element={<RoomManagement />} />
+                      <Route path="/students" element={<StudentDetails />} />
+                      <Route path="/fees" element={<FeeManagement />} />
+                      <Route path="/complaints" element={<Complaints />} />
+                      <Route path="/attendance" element={<Attendance />} />
+                      <Route path="/health" element={<HealthIssues />} />
+                      <Route path="/parent-visits" element={<ParentVisits />} />
+                      <Route path="/mess" element={<MessManagement />} />
                     </Routes>
                   </Layout>
                 </ProtectedRoute>

@@ -147,13 +147,33 @@ const StudentDetails = () => {
     //     setDeleteMode(!deleteMode);
     // };
 
+    const [displayedStudents, setDisplayedStudents] = React.useState([]);
+    const [selectedStudentForView, setSelectedStudentForView] = React.useState('');
     const [searchTerm, setSearchTerm] = React.useState('');
+    const [studentSelectionSearch, setStudentSelectionSearch] = React.useState('');
 
-    const filteredStudents = students.filter(student =>
+    const handleAddStudentToView = () => {
+        if (!selectedStudentForView) return;
+
+        const studentToAdd = students.find(s => (s.id || s.studentId).toString() === selectedStudentForView);
+        if (studentToAdd) {
+            // Avoid duplicates
+            if (!displayedStudents.some(s => (s.id || s.studentId) === (studentToAdd.id || studentToAdd.studentId))) {
+                setDisplayedStudents([...displayedStudents, studentToAdd]);
+            }
+            setSelectedStudentForView(''); // Reset dropdown
+        }
+    };
+
+    const handleClearView = () => {
+        setDisplayedStudents([]);
+    };
+
+    const filteredStudents = displayedStudents.filter(student =>
         student.id?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.firstname?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.lastname?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+        student.studentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        student.studentEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+    ) || [];
 
     const availableRooms = rooms.filter(r => {
         // Show rooms that match the selected hostel OR have no hostel assigned (global rooms)
@@ -165,13 +185,13 @@ const StudentDetails = () => {
     });
 
     const columns = [
-        { header: 'ID', accessor: 'id' }, // Added ID column
+        { header: 'ID', accessor: 'id' },
         { header: 'First Name', accessor: 'firstname' },
         { header: 'Last Name', accessor: 'lastname' },
         { header: 'Email', accessor: 'email' },
-        { header: 'Father Name', accessor: 'fatherName' },
-        { header: 'Father Phone', accessor: 'fatherPhone' }, // Added Father Phone
-        { header: 'Room No.', accessor: (row) => row.room?.roomNumber || row.roomNumber },
+        { header: 'Parent Name', accessor: (row) => row.fatherName || '-' },
+        { header: 'Parent Number', accessor: (row) => row.fatherPhone || '-' },
+        { header: 'Room No.', accessor: (row) => row.room?.roomNumber || row.roomNumber || '-' },
         {
             header: 'Status',
             accessor: 'status',
@@ -225,8 +245,71 @@ const StudentDetails = () => {
                 </div>
             </header>
 
+            {/* Student Selection Control */}
+            <div className="card border-0 shadow-sm mb-4 glass-card">
+                <div className="card-body p-4">
+                    <div className="row g-3 align-items-center">
+                        <div className="col-md-6">
+                            <label className="form-label text-muted small fw-bold">SELECT STUDENT TO VIEW</label>
+                            <div className="input-group mb-2">
+                                <span className="input-group-text bg-white border-end-0 text-muted"><i className="bi bi-search"></i></span>
+                                <input
+                                    type="text"
+                                    className="form-control border-start-0 ps-0 text-muted"
+                                    placeholder="Type to search student name..."
+                                    value={studentSelectionSearch}
+                                    onChange={(e) => setStudentSelectionSearch(e.target.value)}
+                                />
+                            </div>
+                            <select
+                                className="form-select"
+                                value={selectedStudentForView}
+                                onChange={(e) => setSelectedStudentForView(e.target.value)}
+                                size={5}
+                                style={{ maxHeight: '150px' }}
+                            >
+                                <option value="" disabled>-- Select from results --</option>
+                                {students
+                                    .filter(s =>
+                                        !studentSelectionSearch ||
+                                        (s.studentName || '').toLowerCase().includes(studentSelectionSearch.toLowerCase()) ||
+                                        (s.email || '').toLowerCase().includes(studentSelectionSearch.toLowerCase())
+                                    )
+                                    .map(s => (
+                                        <option key={s.id || s.studentId} value={s.id || s.studentId}>
+                                            {s.studentName} ({s.email})
+                                        </option>
+                                    ))}
+                            </select>
+                            <div className="form-text text-muted small mt-1 d-flex justify-content-between">
+                                <span>{studentSelectionSearch ? `Found ${students.filter(s => (s.studentName || '').toLowerCase().includes(studentSelectionSearch.toLowerCase()) || (s.email || '').toLowerCase().includes(studentSelectionSearch.toLowerCase())).length} matches` : `Total Students: ${students.length}`}</span>
+                                {studentSelectionSearch && <span className="text-secondary cursor-pointer" onClick={() => setStudentSelectionSearch('')}>Clear Search</span>}
+                            </div>
+                        </div>
+                        <div className="col-md-6 d-flex gap-2 align-items-end" style={{ paddingTop: '28px' }}>
+                            <button
+                                className="btn btn-primary px-4"
+                                onClick={handleAddStudentToView}
+                                disabled={!selectedStudentForView}
+                            >
+                                <i className="bi bi-plus-lg me-2"></i>
+                                Add to View
+                            </button>
+                            {displayedStudents.length > 0 && (
+                                <button
+                                    className="btn btn-light border text-danger"
+                                    onClick={handleClearView}
+                                >
+                                    Clear List
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <DataTable
-                title="Resident Students"
+                title="Resident Students List"
                 columns={columns}
                 data={filteredStudents}
                 actions={
@@ -236,12 +319,11 @@ const StudentDetails = () => {
                             <input
                                 type="text"
                                 className="form-control border-start-0 ps-0"
-                                placeholder="Search by ID or Name..."
+                                placeholder="Filter displayed list..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
                             />
                         </div>
-                        {/* Delete button removed */}
                     </div>
                 }
             />

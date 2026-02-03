@@ -13,7 +13,7 @@ const request = async (endpoint, options = {}) => {
     const { baseUrl = BASE_URL, ...fetchOptions } = options;
     const url = `${baseUrl}${endpoint}`;
     const token = localStorage.getItem('token') || import.meta.env.VITE_JWT_TOKEN;
-    if (endpoint === '/students' || endpoint === '/login') {
+    if (endpoint === '/students' || endpoint === '/login' || endpoint === '/getstudents') {
         console.log(`[Request] ${endpoint} Token: ${token ? 'Present (' + token.substring(0, 10) + '...)' : 'Missing'}`);
     }
     const defaultHeaders = {
@@ -33,12 +33,10 @@ const request = async (endpoint, options = {}) => {
         const response = await fetch(url, config);
 
         if (!response.ok) {
-            console.error(`Status ${response.status} from ${endpoint}. Logging out disabled for debugging.`);
-            // localStorage.removeItem('token');
-            // localStorage.removeItem('user');
-            // if (window.location.pathname !== '/login') {
-            //     window.location.href = '/login';
-            // }
+            console.error(`Status ${response.status} from ${endpoint}.`);
+            if (response.status === 401) {
+                console.error("401 Unauthorized - Token used:", token);
+            }
             const errorText = await response.text();
             throw new Error(errorText || `HTTP Error: ${response.status}`);
         }
@@ -264,6 +262,11 @@ export const campusService = {
 
     // ================= STUDENT DETAILS (VIA /admin) =================
     getAllStudents: () => request('/getstudents', {
+        method: 'GET',
+        baseUrl: '/admin'
+    }),
+
+    getAllParents: () => request('/getparents', {
         method: 'GET',
         baseUrl: '/admin'
     }),
