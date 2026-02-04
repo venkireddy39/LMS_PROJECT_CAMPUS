@@ -131,7 +131,8 @@ const RoomManagement = () => {
         const sharingTypeVal = sharingMap[room.sharingType] || room.sharingType;
 
         setIsEditing(true);
-        setEditId(room.id);
+        // Ensure we capture the correct ID, falling back to roomId if id is missing
+        setEditId(room.roomId || room.id);
         setNewRoom({
             roomNumber: room.roomNumber,
             sharingType: sharingTypeVal,
@@ -204,7 +205,7 @@ const RoomManagement = () => {
                 </div>
             )
         },
-        { header: 'Vacant', accessor: 'vacant' },
+        // { header: 'Vacant', accessor: 'vacant' },
         {
             header: 'Status',
             accessor: 'status',

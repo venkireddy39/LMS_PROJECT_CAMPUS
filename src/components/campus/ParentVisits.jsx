@@ -1,11 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import DataTable from '../common/DataTable';
 import campusService from '../../services/campusService';
+import { useStudentContext } from '../../context/StudentContext';
 import { FaEdit, FaPlus } from 'react-icons/fa';
 import { MdOutlineDelete } from "react-icons/md";
 
 const ParentVisits = () => {
+    const { getActiveStudents, selectedStudentFilter } = useStudentContext();
+    const students = getActiveStudents();
     const [visits, setVisits] = useState([]);
+
+    // Filter visits based on selected student from context
+    const filteredVisits = selectedStudentFilter
+        ? visits.filter(v => v.studentName === selectedStudentFilter.studentName || v.studentName === selectedStudentFilter.name)
+        : visits;
+
     const [showModal, setShowModal] = useState(false);
     const [deleteMode, setDeleteMode] = useState(false);
     const [editingVisit, setEditingVisit] = useState(null);
@@ -151,7 +160,7 @@ const ParentVisits = () => {
             <DataTable
                 title="Recent Visit Logs"
                 columns={columns}
-                data={visits}
+                data={filteredVisits}
                 actions={
                     <div className="d-flex gap-2">
                         <button className="btn-premium btn-premium-primary" onClick={() => setShowModal(true)}>
@@ -188,8 +197,30 @@ const ParentVisits = () => {
                                 <form onSubmit={handleSubmit}>
                                     <div className="row g-4">
                                         <div className="col-md-6">
-                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Student Name</label>
-                                            <input type="text" className="form-control" name="studentName" value={formData.studentName} onChange={handleInputChange} placeholder="Full name of student" required />
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Select Student</label>
+                                            <select
+                                                className="form-select"
+                                                name="studentName"
+                                                value={formData.studentName}
+                                                onChange={(e) => {
+                                                    const selectedName = e.target.value;
+                                                    const student = students.find(s => s.studentName === selectedName || s.name === selectedName);
+                                                    setFormData({
+                                                        ...formData,
+                                                        studentName: selectedName,
+                                                        parentName: student ? (student.fatherName || '') : formData.parentName,
+                                                        contactNumber: student ? (student.fatherPhone || '') : formData.contactNumber
+                                                    });
+                                                }}
+                                                required
+                                            >
+                                                <option value="">Choose student...</option>
+                                                {students.map((s, idx) => (
+                                                    <option key={s.id || idx} value={s.studentName || s.name}>
+                                                        {s.studentName || s.name} {s.roomNumber ? `(${s.roomNumber})` : ''}
+                                                    </option>
+                                                ))}
+                                            </select>
                                         </div>
                                         <div className="col-md-6">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Vistor Name</label>

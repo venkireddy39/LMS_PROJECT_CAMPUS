@@ -18,8 +18,12 @@ const request = async (endpoint, options = {}) => {
     }
     const defaultHeaders = {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`
     };
+
+    // ONLY add token if NOT logging in
+    if (token && endpoint !== '/login') {
+        defaultHeaders['Authorization'] = `Bearer ${token}`;
+    }
 
     const config = {
         ...fetchOptions,
@@ -35,10 +39,22 @@ const request = async (endpoint, options = {}) => {
         if (!response.ok) {
             console.error(`Status ${response.status} from ${endpoint}.`);
             if (response.status === 401) {
-                console.error("401 Unauthorized - Token used:", token);
+                console.error(`[401 Unauthorized] Request to ${url} failed.`);
+                console.warn("Session expired. Redirecting to login...");
+
+                // Clear storage
+                localStorage.removeItem('token');
+                localStorage.removeItem('user');
+
+                // Redirect if not already on login page
+                if (!window.location.pathname.includes('/login')) {
+                    window.location.href = '/login';
+                    // Return a pending promise to halt execution chain
+                    return new Promise(() => { });
+                }
             }
             const errorText = await response.text();
-            throw new Error(errorText || `HTTP Error: ${response.status}`);
+            throw new Error(errorText || `HTTP Error: ${response.status} from ${endpoint}`);
         }
 
         const contentType = response.headers.get("content-type");
@@ -272,11 +288,27 @@ export const campusService = {
     }),
 
     // ================= AUTHENTICATION =================
-    login: (credentials) => request('/login', {
-        method: 'POST',
-        baseUrl: '/auth',
-        body: JSON.stringify(credentials)
-    }),
+    login: async (credentials) => {
+        console.log("Attempting login with:", { email: credentials.email, passwordLength: credentials.password.length });
+
+        try {
+            const response = await request('/login', {
+                method: 'POST',
+                baseUrl: '/auth',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    email: credentials.email,
+                    password: credentials.password
+                })
+            });
+            return response;
+        } catch (error) {
+            console.error("Login Request Failed:", error);
+            throw error;
+        }
+    },
 };
 
 export default campusService;

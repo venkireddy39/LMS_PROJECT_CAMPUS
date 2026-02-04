@@ -2,12 +2,16 @@ import React from 'react';
 import campusService from '../../services/campusService';
 import DataTable from '../common/DataTable';
 
+import { useStudentContext } from '../../context/StudentContext';
+
 const FeeManagement = () => {
     // Note: We are switching from using StudentContext to fetching allocations directly from backend.
     // The backend allocations likely contain the student and fee details.
     const [fees, setFees] = React.useState([]);
     const [showModal, setShowModal] = React.useState(false);
     const [currentFee, setCurrentFee] = React.useState(null);
+
+    const { selectedStudentFilter } = useStudentContext();
 
     React.useEffect(() => {
         loadFees();
@@ -25,6 +29,10 @@ const FeeManagement = () => {
             console.error("Failed to load fee records", error);
         }
     };
+
+    const filteredFees = selectedStudentFilter
+        ? fees.filter(f => f.studentName === selectedStudentFilter.studentName || f.studentId === selectedStudentFilter.studentId)
+        : fees;
 
     const handleEditClick = (feeRecord) => {
         setCurrentFee({ ...feeRecord });
@@ -97,7 +105,7 @@ const FeeManagement = () => {
             <DataTable
                 title="Resident Accounts"
                 columns={columns}
-                data={fees}
+                data={filteredFees}
             />
 
             {/* Premium Edit Fee Modal */}

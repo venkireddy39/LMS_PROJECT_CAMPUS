@@ -94,9 +94,19 @@ const Navbar = () => {
                             <ul className="dropdown-menu dropdown-menu-end shadow-lg border-0 mt-2 p-2 glass-card">
                                 <li><a className="dropdown-item rounded-2 text-main" href="#"><i className="bi bi-person me-2"></i>My Profile</a></li>
                                 <li><a className="dropdown-item rounded-2 text-main" href="#"><i className="bi bi-gear me-2"></i>Settings</a></li>
-                                {/* <li><hr className="dropdown-divider mx-2 border-secondary opacity-25" /></li> */}
-                                {/* Logout button removed as requested */}
-                                {/* <li><button className="dropdown-item rounded-2 text-danger bg-transparent border-0 w-100 text-start" onClick={logout}><i className="bi bi-box-arrow-right me-2"></i>Log Out</button></li> */}
+                                <li><hr className="dropdown-divider mx-2 border-secondary opacity-25" /></li>
+                                <li>
+                                    <button
+                                        className="dropdown-item rounded-2 text-danger bg-transparent border-0 w-100 text-start"
+                                        onClick={() => {
+                                            if (window.confirm('Are you sure you want to log out?')) {
+                                                logout();
+                                            }
+                                        }}
+                                    >
+                                        <i className="bi bi-box-arrow-right me-2"></i>Log Out
+                                    </button>
+                                </li>
                             </ul>
                         </div>
                     </div>

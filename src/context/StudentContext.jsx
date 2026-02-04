@@ -53,17 +53,20 @@ export const StudentProvider = ({ children }) => {
             const relIdParentMap = new Map();
 
             if (Array.isArray(parentsData)) {
-                parentsData.forEach(group => {
-                    if (group.parent) {
+                parentsData.forEach(item => {
+                    // Check if item IS the parent object (direct structure) or if it's wrapped in 'parent' key
+                    const parentData = item.user ? item : (item.parent || null);
+
+                    if (parentData && parentData.user) {
                         const parentInfo = {
-                            name: `${group.parent.user?.firstName || ''} ${group.parent.user?.lastName || ''}`.trim(),
-                            phone: group.parent.user?.phone || '',
-                            email: group.parent.user?.email || ''
+                            name: `${parentData.user.firstName || ''} ${parentData.user.lastName || ''}`.trim(),
+                            phone: parentData.user.phone || '',
+                            email: parentData.user.email || ''
                         };
 
                         // Map each relationship ID associated with this parent to the parent info
-                        if (Array.isArray(group.parent.students)) {
-                            group.parent.students.forEach(rel => {
+                        if (Array.isArray(parentData.students)) {
+                            parentData.students.forEach(rel => {
                                 if (rel.relId) {
                                     relIdParentMap.set(rel.relId, parentInfo);
                                 }
@@ -89,10 +92,18 @@ export const StudentProvider = ({ children }) => {
                         }
                     }
 
+                    const allocationObj = s.allocation || {};
+                    const allocationId = s.allocationId || allocationObj.id || allocationObj.allocationId || null;
+                    const dbId = s.studentId || s.userId || s.id;
+                    const isAllocation = !!allocationId;
+
                     return {
                         ...s,
-                        id: s.allocationId || s.studentId || s.userId || s.id,
-                        studentId: s.studentId,
+                        id: allocationId || dbId, // Prefer allocationId for table actions if available
+                        allocationId: allocationId,
+                        studentId: dbId,
+                        isAllocation: isAllocation,
+
                         firstname: s.user?.firstName || s.firstName || '',
                         lastname: s.user?.lastName || s.lastName || '',
                         email: s.user?.email || s.email || '',
@@ -158,8 +169,13 @@ export const StudentProvider = ({ children }) => {
 
     const getActiveStudents = () => {
         // Assuming backend returns an 'status' field in allocation
-        return students.filter(student => student.stayStatus === 'Active' || student.status === 'Active');
+        return students.filter(student =>
+            (student.stayStatus && student.stayStatus.toUpperCase() === 'ACTIVE') ||
+            (student.status && student.status.toUpperCase() === 'ACTIVE')
+        );
     };
+
+    const [selectedStudentFilter, setSelectedStudentFilter] = useState(null);
 
     return (
         <StudentContext.Provider value={{
@@ -169,7 +185,9 @@ export const StudentProvider = ({ children }) => {
             updateStudent,
             deleteStudent,
             getActiveStudents,
-            refreshStudents: loadStudents
+            refreshStudents: loadStudents,
+            selectedStudentFilter,
+            setSelectedStudentFilter
         }}>
             {children}
         </StudentContext.Provider>

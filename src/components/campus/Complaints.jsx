@@ -4,7 +4,7 @@ import campusService from '../../services/campusService';
 import { useStudentContext } from '../../context/StudentContext';
 
 const Complaints = () => {
-    const { students, refreshStudents } = useStudentContext();
+    const { students, refreshStudents, selectedStudentFilter } = useStudentContext();
     const [issues, setIssues] = React.useState([]);
     const [showModal, setShowModal] = React.useState(false);
     const [currentIssue, setCurrentIssue] = React.useState(null);
@@ -14,6 +14,10 @@ const Complaints = () => {
         refreshStudents(); // Ensure we have the latest student list
         loadComplaints();
     }, []);
+
+    const filteredIssues = selectedStudentFilter
+        ? issues.filter(i => i.studentName === selectedStudentFilter.studentName || i.studentId === selectedStudentFilter.studentId)
+        : issues;
 
     const loadComplaints = async () => {
         try {
@@ -35,11 +39,11 @@ const Complaints = () => {
             studentName: '',
             hostelName: '',
             roomNumber: '',
-            category: 'Plumbing',
+            category: 'PLUMBING',
             description: '',
             reportedDate: new Date().toISOString().split('T')[0],
-            priority: 'Medium',
-            status: 'Open',
+            priority: 'MEDIUM',
+            status: 'OPEN',
             remarks: ''
         });
         setIsNewIssue(true);
@@ -98,8 +102,8 @@ const Complaints = () => {
             accessor: 'priority',
             render: (row) => {
                 let badgeClass = 'bg-secondary bg-opacity-10 text-secondary';
-                if (row.priority === 'High') badgeClass = 'bg-danger bg-opacity-10 text-danger';
-                if (row.priority === 'Medium') badgeClass = 'bg-warning bg-opacity-10 text-warning-emphasis';
+                if (row.priority === 'HIGH') badgeClass = 'bg-danger bg-opacity-10 text-danger';
+                if (row.priority === 'MEDIUM') badgeClass = 'bg-warning bg-opacity-10 text-warning-emphasis';
                 return <span className={`badge rounded-pill px-3 py-2 fw-bold ${badgeClass}`}>{row.priority}</span>;
             }
         },
@@ -108,9 +112,9 @@ const Complaints = () => {
             accessor: 'status',
             render: (row) => {
                 let badgeClass = 'bg-secondary bg-opacity-10 text-secondary';
-                if (row.status === 'Resolved') badgeClass = 'bg-success bg-opacity-10 text-success';
-                if (row.status === 'In Progress') badgeClass = 'bg-primary bg-opacity-10 text-primary';
-                if (row.status === 'Closed') badgeClass = 'bg-dark bg-opacity-10 text-dark';
+                if (row.status === 'RESOLVED') badgeClass = 'bg-success bg-opacity-10 text-success';
+                if (row.status === 'IN_PROGRESS') badgeClass = 'bg-primary bg-opacity-10 text-primary';
+                if (row.status === 'CLOSED') badgeClass = 'bg-dark bg-opacity-10 text-dark';
                 return <span className={`badge rounded-pill px-3 py-2 fw-bold ${badgeClass}`}>{row.status}</span>;
             }
         },
@@ -137,7 +141,7 @@ const Complaints = () => {
             <DataTable
                 title="Service Tickets"
                 columns={columns}
-                data={issues}
+                data={filteredIssues}
                 actions={
                     <button className="btn-premium btn-premium-primary" onClick={handleAddNewClick}>
                         <i className="bi bi-plus-circle"></i> Add Ticket
@@ -196,19 +200,19 @@ const Complaints = () => {
                                         <div className="col-md-6">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Issue Category</label>
                                             <select className="form-select" name="category" value={currentIssue.category} onChange={handleInputChange}>
-                                                <option value="Plumbing">Plumbing</option>
-                                                <option value="Electrical">Electrical</option>
-                                                <option value="Furniture">Furniture</option>
-                                                <option value="Cleaning">Cleaning</option>
-                                                <option value="Others">Others</option>
+                                                <option value="PLUMBING">PLUMBING</option>
+                                                <option value="ELECTRICAL">ELECTRICAL</option>
+                                                <option value="FURNITURE">FURNITURE</option>
+                                                <option value="CLEANING">CLEANING</option>
+                                                <option value="OTHERS">OTHERS</option>
                                             </select>
                                         </div>
                                         <div className="col-md-6">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Priority Level</label>
                                             <select className="form-select" name="priority" value={currentIssue.priority} onChange={handleInputChange}>
-                                                <option value="Low">Low (Standard)</option>
-                                                <option value="Medium">Medium (Urgent)</option>
-                                                <option value="High">High (Immediate)</option>
+                                                <option value="LOW">LOW (STANDARD)</option>
+                                                <option value="MEDIUM">MEDIUM (URGENT)</option>
+                                                <option value="HIGH">HIGH (IMMEDIATE)</option>
                                             </select>
                                         </div>
                                         <div className="col-md-12">
@@ -222,10 +226,10 @@ const Complaints = () => {
                                         <div className="col-md-6">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Workflow Status</label>
                                             <select className="form-select" name="status" value={currentIssue.status} onChange={handleInputChange}>
-                                                <option value="Open">🆕 Open Ticket</option>
-                                                <option value="In Progress">⚙️ In Progress</option>
-                                                <option value="Resolved">✅ Resolved</option>
-                                                <option value="Closed">🔒 Closed</option>
+                                                <option value="OPEN">🆕 OPEN TICKET</option>
+                                                <option value="IN_PROGRESS">⚙️ IN PROGRESS</option>
+                                                <option value="RESOLVED">✅ RESOLVED</option>
+                                                <option value="CLOSED">🔒 CLOSED</option>
                                             </select>
                                         </div>
                                         <div className="col-md-12">

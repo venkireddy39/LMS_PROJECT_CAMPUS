@@ -61,7 +61,7 @@ const Login = () => {
                             <input
                                 type="email"
                                 name="email"
-                                className="form-control border-start-0 ps-0"
+                                className="form-control border-start-0 ps-0 text-dark"
                                 placeholder="name@campus.com"
                                 value={credentials.email}
                                 onChange={handleChange}
@@ -76,7 +76,7 @@ const Login = () => {
                             <input
                                 type="password"
                                 name="password"
-                                className="form-control border-start-0 ps-0"
+                                className="form-control border-start-0 ps-0 text-dark"
                                 placeholder="Enter your password"
                                 value={credentials.password}
                                 onChange={handleChange}
@@ -93,10 +93,10 @@ const Login = () => {
                         {isSubmitting ? (
                             <>
                                 <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
-                                Signing In...
+                                Logging In...
                             </>
                         ) : (
-                            'Sign In'
+                            'Login'
                         )}
                     </button>
                 </form>

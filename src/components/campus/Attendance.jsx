@@ -6,7 +6,7 @@ import { useStudentContext } from '../../context/StudentContext';
 import { MdCommentBank } from "react-icons/md";
 
 const Attendance = () => {
-    const { getActiveStudents } = useStudentContext();
+    const { getActiveStudents, selectedStudentFilter } = useStudentContext();
     const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
     const [filter, setFilter] = useState('All');
 
@@ -20,6 +20,21 @@ const Attendance = () => {
     useEffect(() => {
         loadAttendance();
     }, [date]);
+
+    // ... (keep intervening functions same) ...
+
+    // Filter data by selected date and status
+    const filteredData = data.filter(item => {
+        const dateMatch = item.date === date;
+        const statusMatch = filter === 'All' || item.status === filter;
+
+        // Added student filter logic
+        const studentMatch = selectedStudentFilter
+            ? (item.studentName === selectedStudentFilter.studentName || item.studentId === selectedStudentFilter.studentId)
+            : true;
+
+        return dateMatch && statusMatch && studentMatch;
+    });
 
     const loadAttendance = async () => {
         try {
@@ -163,12 +178,7 @@ const Attendance = () => {
         }
     };
 
-    // Filter data by selected date and status
-    const filteredData = data.filter(item => {
-        const dateMatch = item.date === date;
-        const statusMatch = filter === 'All' || item.status === filter;
-        return dateMatch && statusMatch;
-    });
+
 
     const dateStats = {
         total: getActiveStudents().length,

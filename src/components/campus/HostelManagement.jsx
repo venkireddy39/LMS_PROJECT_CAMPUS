@@ -1,11 +1,14 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import DataTable from '../common/DataTable';
 import campusService from '../../services/campusService';
+import { FaEdit } from 'react-icons/fa';
 
 const HostelManagement = () => {
     const [hostelList, setHostelList] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [searchTerm, setSearchTerm] = useState('');
+    const [isEditing, setIsEditing] = useState(false);
+    const [editHostelId, setEditHostelId] = useState(null);
 
     // Fetch Hostels
     useEffect(() => {
@@ -37,24 +40,49 @@ const HostelManagement = () => {
         setNewHostel({ ...newHostel, [name]: value });
     };
 
+    const resetForm = () => {
+        setNewHostel({
+            hostelName: '',
+            hostelType: 'MEN',
+            totalBlocks: 0,
+            totalRooms: 0,
+            wardenName: '',
+            contactNumber: '',
+            status: 'ACTIVE'
+        });
+        setIsEditing(false);
+        setEditHostelId(null);
+    };
+
+    const handleEdit = (hostel) => {
+        setIsEditing(true);
+        setEditHostelId(hostel.hostelId || hostel.id);
+        setNewHostel({
+            hostelName: hostel.hostelName,
+            hostelType: hostel.hostelType || 'MEN',
+            totalBlocks: hostel.totalBlocks,
+            totalRooms: hostel.totalRooms,
+            wardenName: hostel.wardenName,
+            contactNumber: hostel.contactNumber,
+            status: hostel.status || 'ACTIVE'
+        });
+        setShowModal(true);
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            await campusService.createHostel(newHostel);
+            if (isEditing) {
+                await campusService.updateHostel(editHostelId, newHostel);
+            } else {
+                await campusService.createHostel(newHostel);
+            }
             loadHostels(); // Refresh list
             setShowModal(false);
-            setNewHostel({
-                hostelName: '',
-                hostelType: 'MEN',
-                totalBlocks: 0,
-                totalRooms: 0,
-                wardenName: '',
-                contactNumber: '',
-                status: 'ACTIVE'
-            });
+            resetForm();
         } catch (error) {
-            console.error("Failed to create hostel", error);
-            alert("Failed to create hostel");
+            console.error(isEditing ? "Failed to update hostel" : "Failed to create hostel", error);
+            alert(isEditing ? "Failed to update hostel" : "Failed to create hostel");
         }
     };
 
@@ -89,6 +117,19 @@ const HostelManagement = () => {
                 <span className={`badge rounded-pill px-3 py-2 ${row.status === 'ACTIVE' ? 'bg-success bg-opacity-10 text-success' : 'bg-secondary bg-opacity-10 text-secondary'}`}>
                     {row.status}
                 </span>
+            )
+        },
+        {
+            header: 'Actions',
+            accessor: 'actions',
+            render: (row) => (
+                <button
+                    className="btn btn-sm btn-warning"
+                    onClick={() => handleEdit(row)}
+                    title="Edit Hostel"
+                >
+                    <FaEdit />
+                </button>
             )
         }
     ];
@@ -130,9 +171,10 @@ const HostelManagement = () => {
                         <div className="modal-content glass-card border-0 shadow-2xl p-0">
                             <div className="p-4 border-bottom border-light d-flex justify-content-between align-items-center bg-primary bg-opacity-10">
                                 <h5 className="modal-title fw-bold text-main mb-0">
-                                    <i className="bi bi-building-add text-primary me-2"></i>Add New Hostel
+                                    <i className={`bi ${isEditing ? 'bi-pencil-square' : 'bi-building-add'} text-primary me-2`}></i>
+                                    {isEditing ? 'Edit Hostel' : 'Add New Hostel'}
                                 </h5>
-                                <button type="button" className="btn-close shadow-none" onClick={() => setShowModal(false)}></button>
+                                <button type="button" className="btn-close shadow-none" onClick={() => { setShowModal(false); resetForm(); }}></button>
                             </div>
                             <div className="p-4">
                                 <form onSubmit={handleSubmit}>
@@ -174,8 +216,8 @@ const HostelManagement = () => {
                                         </div>
                                     </div>
                                     <div className="d-flex justify-content-end gap-2">
-                                        <button type="button" className="btn btn-light px-4 rounded-pill fw-500" onClick={() => setShowModal(false)}>Cancel</button>
-                                        <button type="submit" className="btn-premium btn-premium-primary rounded-pill px-5">Save Hostel</button>
+                                        <button type="button" className="btn btn-light px-4 rounded-pill fw-500" onClick={() => { setShowModal(false); resetForm(); }}>Cancel</button>
+                                        <button type="submit" className="btn-premium btn-premium-primary rounded-pill px-5">{isEditing ? 'Update Hostel' : 'Save Hostel'}</button>
                                     </div>
                                 </form>
                             </div>

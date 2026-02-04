@@ -65,6 +65,17 @@ const WeeklyMessMenu = () => {
             }
         } catch (error) {
             console.error("Failed to load menu", error);
+            // Fallback to empty menu if fetch fails to prevent infinite loading
+            const empty = {};
+            days.forEach(d => {
+                empty[d] = {
+                    Breakfast: { items: '', status: 'Not Served' },
+                    Lunch: { items: '', status: 'Not Served' },
+                    Dinner: { items: '', status: 'Not Served' },
+                    id: null
+                };
+            });
+            setMenuData(empty);
         }
     }
 
@@ -182,7 +193,7 @@ const WeeklyMessMenu = () => {
 
     // --- Render Helpers ---
     const MealCard = ({ title, icon: Icon, data, colorClass }) => (
-        <div className={`p-4 rounded-4 w-100 h-100 flex-grow-1 ${colorClass} bg-opacity-10 border border-${colorClass.replace('bg-', '')} border-opacity-20 shadow-sm transition-all hover-shadow-md d-flex flex-column`} style={{ minHeight: '180px' }}>
+        <div className={`p-3 rounded-4 w-100 h-100 flex-grow-1 ${colorClass} bg-opacity-10 border border-${colorClass.replace('bg-', '')} border-opacity-20 shadow-sm transition-all hover-shadow-md d-flex flex-column overflow-hidden`} style={{ minHeight: '140px' }}>
             <div className={`d-flex align-items-center justify-content-between mb-4`}>
                 <div className={`d-flex align-items-center gap-2 ${colorClass.replace('bg-', 'text-')} fw-bold text-uppercase tracking-wider smaller`}>
                     <Icon size={18} /> <span style={{ fontSize: '0.9rem' }}>{title}</span>
@@ -193,7 +204,7 @@ const WeeklyMessMenu = () => {
                 </span>
             </div>
             {data.items ? (
-                <p className="fw-500 text-dark mb-0 lh-lg text-break text-wrap flex-grow-1" style={{ whiteSpace: 'pre-line', fontSize: '1.05rem' }}>{data.items}</p>
+                <p className="fw-500 text-dark mb-0 lh-lg text-break text-wrap flex-grow-1" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'pre-line', fontSize: '1.05rem' }}>{data.items}</p>
             ) : (
                 <div className="d-flex align-items-center justify-content-center h-100 text-muted opacity-50">
                     <span className="fst-italic small">Menu pending...</span>
@@ -306,10 +317,10 @@ const WeeklyMessMenu = () => {
                                         style={{ resize: 'none' }}
                                     ></textarea>
                                 ) : (
-                                    <div className={`p-4 rounded-4 h-100 d-flex flex-column ${meal === 'Breakfast' ? 'bg-warning' :
+                                    <div className={`p-3 rounded-4 d-flex flex-column overflow-hidden ${meal === 'Breakfast' ? 'bg-warning' :
                                         meal === 'Lunch' ? 'bg-danger' : 'bg-primary'
-                                        } bg-opacity-10 border border-opacity-10`} style={{ minHeight: '180px' }}>
-                                        <p className="fw-500 mb-0 lh-lg text-break text-wrap" style={{ whiteSpace: 'pre-line', fontSize: '1rem' }}>{menuData[activeDay][meal].items || <span className="text-muted fst-italic opacity-50">Not Set</span>}</p>
+                                        } bg-opacity-10 border border-opacity-10`} style={{ height: '140px' }}>
+                                        <p className="fw-500 mb-0 lh-lg text-break text-wrap" style={{ wordBreak: 'break-word', overflowWrap: 'anywhere', whiteSpace: 'pre-line', fontSize: '1rem' }}>{menuData[activeDay][meal].items || <span className="text-muted fst-italic opacity-50">Not Set</span>}</p>
                                     </div>
                                 )}
                             </div>

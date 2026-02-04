@@ -5,7 +5,7 @@ import campusService from '../../services/campusService';
 import { useStudentContext } from '../../context/StudentContext';
 
 const HealthIssues = () => {
-    const { getActiveStudents } = useStudentContext();
+    const { getActiveStudents, selectedStudentFilter } = useStudentContext();
     const [records, setRecords] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [currentRecord, setCurrentRecord] = useState(null);
@@ -14,6 +14,10 @@ const HealthIssues = () => {
     useEffect(() => {
         loadRecords();
     }, []);
+
+    const filteredRecords = selectedStudentFilter
+        ? records.filter(r => r.studentName === selectedStudentFilter.name || r.studentName === selectedStudentFilter.studentName)
+        : records;
 
     const loadRecords = async () => {
         try {
@@ -168,7 +172,7 @@ const HealthIssues = () => {
             <DataTable
                 title="Resident Medical Records"
                 columns={columns}
-                data={records}
+                data={filteredRecords}
                 actions={
                     <button className="btn-premium btn-premium-primary" onClick={handleAddNewClick}>
                         <i className="bi bi-heart-pulse"></i> Log New Case

@@ -6,7 +6,7 @@ import { MdOutlineDelete } from "react-icons/md";
 import campusService from '../../services/campusService';
 
 const StudentDetails = () => {
-    const { students, addStudent, updateStudent, deleteStudent } = useStudentContext();
+    const { students, addStudent, updateStudent, deleteStudent, setSelectedStudentFilter } = useStudentContext();
     const [showModal, setShowModal] = React.useState(false);
     // const [deleteMode, setDeleteMode] = React.useState(false);
     const [editingStudent, setEditingStudent] = React.useState(null);
@@ -66,20 +66,38 @@ const StudentDetails = () => {
 
     const handleSubmit = (e) => {
         e.preventDefault();
-        // Construct payload matching the JSON structure provided
+
+        // Validate required fields
+        if (!formData.hostelId || !formData.roomId) {
+            alert("Please select both a Hostel and a Room.");
+            return;
+        }
+
+        // Robust ID extraction
+        // If isAllocation is false, editingStudent.id IS the studentId (dbId)
+        const sId = editingStudent?.studentId || (editingStudent && !editingStudent.isAllocation ? editingStudent.id : null);
+
+        // Find full object details
+        const selectedHostel = hostels.find(h => (h.hostelId || h.id).toString() === formData.hostelId.toString());
+        const selectedRoom = rooms.find(r => (r.roomId || r.id).toString() === formData.roomId.toString());
+
         const payload = {
             ...formData,
-            // Map flat fields for backend
-            studentId: editingStudent?.studentId || null,
-            hostel: {
-                id: parseInt(formData.hostelId),
-                hostelId: parseInt(formData.hostelId)
+            // Explicitly map IDs for backend
+            studentId: sId,
+            student: sId ? { id: sId } : null,
+
+            // Send FULL objects as requested
+            hostel: selectedHostel || {
+                id: Number(formData.hostelId),
+                hostelId: Number(formData.hostelId)
             },
-            room: {
-                id: parseInt(formData.roomId)
+
+            room: selectedRoom || {
+                id: Number(formData.roomId),
+                roomId: Number(formData.roomId),
+                roomNumber: formData.roomNumber
             },
-            // Include student reference if needed by some backend logic (keeping for safety, though studentId is primary)
-            ...(editingStudent ? { student: { id: editingStudent.studentId } } : {}),
 
             // Ensure numeric values are parsed
             monthlyFee: parseFloat(formData.monthlyFee) || 0,
@@ -88,10 +106,19 @@ const StudentDetails = () => {
             dueAmount: parseFloat(formData.dueAmount) || 0,
         };
 
-        if (editingStudent) {
-            // Use editingStudent.id (which maps to allocationId in Context) for the update
-            updateStudent(editingStudent.id, payload);
+        console.log("Submitting Allocation Payload:", payload); // Debug log
+
+        if (editingStudent && editingStudent.isAllocation && editingStudent.allocationId) {
+            // Update existing allocation
+            updateStudent(editingStudent.allocationId, payload);
         } else {
+            // Create new allocation
+            // Note: createAllocation requires a valid studentId. 
+            if (!sId) {
+                console.error("Cannot create allocation: Missing Student ID", editingStudent);
+                alert("Error: Cannot identify the student account. Please ensure the student is registered correctly.");
+                return;
+            }
             addStudent(payload);
         }
         setShowModal(false);
@@ -126,8 +153,8 @@ const StudentDetails = () => {
             studentEmail: student.studentEmail || '',
             fatherName: student.fatherName || '',
             fatherPhone: student.fatherPhone || '',
-            hostelId: student.hostel?.id || student.hostelId || '',
-            roomId: student.room?.id || student.roomId || '',
+            hostelId: student.hostel?.hostelId || student.hostel?.id || student.hostelId || '',
+            roomId: student.room?.roomId || student.room?.id || student.roomId || '',
             roomNumber: student.room?.roomNumber || student.roomNumber || '',
             joinDate: student.joinDate || '',
             leaveDate: student.leaveDate || '',
@@ -162,6 +189,9 @@ const StudentDetails = () => {
                 setDisplayedStudents([...displayedStudents, studentToAdd]);
             }
             setSelectedStudentForView(''); // Reset dropdown
+
+            // Set global filter for other modules
+            setSelectedStudentFilter(studentToAdd);
         }
     };
 
@@ -369,11 +399,11 @@ const StudentDetails = () => {
                                                         <input type="email" className="form-control form-control-lg fs-6" name="studentEmail" value={formData.studentEmail} onChange={handleInputChange} placeholder="name@example.com" required />
                                                     </div>
                                                     <div className="col-md-6 col-lg-3">
-                                                        <label className="form-label fw-600 smaller text-uppercase text-muted ps-1">Father's Name</label>
+                                                        <label className="form-label fw-600 smaller text-uppercase text-muted ps-1">Parent Name</label>
                                                         <input type="text" className="form-control form-control-lg fs-6" name="fatherName" value={formData.fatherName} onChange={handleInputChange} placeholder="Parent/Guardian Name" required />
                                                     </div>
                                                     <div className="col-md-6 col-lg-3">
-                                                        <label className="form-label fw-600 smaller text-uppercase text-muted ps-1">Father's Phone</label>
+                                                        <label className="form-label fw-600 smaller text-uppercase text-muted ps-1">Parent Number</label>
                                                         <input type="tel" className="form-control form-control-lg fs-6" name="fatherPhone" value={formData.fatherPhone} onChange={handleInputChange} placeholder="+91 00000 00000" required />
                                                     </div>
                                                 </div>
