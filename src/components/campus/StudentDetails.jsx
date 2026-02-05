@@ -13,6 +13,7 @@ const StudentDetails = () => {
     const [hostels, setHostels] = React.useState([]);
     const [rooms, setRooms] = React.useState([]);
     const [formData, setFormData] = React.useState({
+        studentId: '', // Hidden ID for DB1 reference
         studentName: '',
         studentEmail: '',
         fatherName: '',
@@ -25,6 +26,11 @@ const StudentDetails = () => {
         paymentStatus: 'DUE',
         status: 'ACTIVE'
     });
+
+    // DB1 Search State
+    const [db1SearchTerm, setDb1SearchTerm] = React.useState('');
+    const [db1SearchResults, setDb1SearchResults] = React.useState([]);
+    const [isSearchingDB1, setIsSearchingDB1] = React.useState(false);
 
     React.useEffect(() => {
         fetchHostels();
@@ -47,6 +53,93 @@ const StudentDetails = () => {
         } catch (error) {
             console.error("Failed to fetch rooms", error);
         }
+    };
+
+    // DB1 Search Function (Called when typing in New Student Modal)
+    React.useEffect(() => {
+        const searchDB1 = async () => {
+            if (db1SearchTerm.length < 2) {
+                setDb1SearchResults([]);
+                return;
+            }
+            setIsSearchingDB1(true);
+            try {
+                // Fetch all and filter client-side (Optimizable via backend search API)
+                const response = await campusService.getAllStudents(); // DB1
+                const allStudents = Array.isArray(response) ? response : (response.data || response.students || []);
+
+                const filtered = allStudents.filter(s => {
+                    const firstName = s.user?.firstName || s.firstName || s.name || '';
+                    const lastName = s.user?.lastName || s.lastName || '';
+                    const fullName = `${firstName} ${lastName}`.trim().toLowerCase();
+                    const email = (s.user?.email || s.email || '').toLowerCase();
+                    const query = db1SearchTerm.toLowerCase();
+
+                    return fullName.includes(query) || email.includes(query);
+                });
+
+                // Fetch parents only if we have results to map (Optimization)
+                // For simplicity, we might just assume the user object has parent info or fetch parent on selection
+                // We need to fetch parents to get fatherName... this is tricky without a dedicated "Get Full Student" API.
+                // Let's rely on what getAllStudents returns for now, or fetch parents in parallel if affordable.
+                // Plan: Fetch parents once on mount (cached) or on search? 
+                // Better: Fetch parents ONLY when selecting the student? 
+                // Let's fetch all parents for lookup if term > 2
+                if (filtered.length > 0) {
+                    // const parents = await campusService.getAllParents();
+                    // Simplified: Just use student info first. 
+                }
+
+                setDb1SearchResults(filtered.slice(0, 5)); // Limit to 5
+            } catch (error) {
+                console.error("DB1 Search failed", error);
+            } finally {
+                setIsSearchingDB1(false);
+            }
+        };
+
+        const timeoutId = setTimeout(searchDB1, 500); // Debounce
+        return () => clearTimeout(timeoutId);
+    }, [db1SearchTerm]);
+
+    const handleSelectDB1Student = async (student) => {
+        // Fetch parent details for this specific student if not present
+        // Or assume user inputs it. 
+        // Let's try to find parent info from getAllParents() 
+        let parentName = '';
+        let parentPhone = '';
+
+        try {
+            const allParents = await campusService.getAllParents();
+            const parentsList = Array.isArray(allParents) ? allParents : (allParents.parent ? [allParents] : []);
+            // Logic to find parent... reused from old context
+            // This is heavy but correct per requirement to get data from DB1
+            // Iterate to find relation
+            for (const pItem of parentsList) {
+                const pData = pItem.user ? pItem : (pItem.parent || null);
+                if (pData && pData.students) {
+                    const isParent = pData.students.some(rel => rel.relId === (student.parents?.[0]?.relId));
+                    // Or match by student ID if available in relation?
+                    // Assuming structure
+                    if (isParent) {
+                        parentName = `${pData.user.firstName} ${pData.user.lastName}`;
+                        parentPhone = pData.user.phone;
+                        break;
+                    }
+                }
+            }
+        } catch (e) { console.warn("Could not fetch parents for autofill", e); }
+
+        setFormData({
+            ...formData,
+            studentId: student.id || student.studentId || student.userId,
+            studentName: `${student.user?.firstName || student.firstName || ''} ${student.user?.lastName || student.lastName || ''}`.trim(),
+            studentEmail: student.user?.email || student.email || '',
+            fatherName: parentName || student.fatherName || '',
+            fatherPhone: parentPhone || student.fatherPhone || '',
+        });
+        setDb1SearchTerm('');
+        setDb1SearchResults([]);
     };
 
     const handleInputChange = (e) => {
@@ -75,11 +168,10 @@ const StudentDetails = () => {
 
         // Robust ID extraction
         // If isAllocation is false, editingStudent.id IS the studentId (dbId)
-        const sId = editingStudent?.studentId || (editingStudent && !editingStudent.isAllocation ? editingStudent.id : null);
-
-        // Find full object details
-        const selectedHostel = hostels.find(h => (h.hostelId || h.id).toString() === formData.hostelId.toString());
-        const selectedRoom = rooms.find(r => (r.roomId || r.id).toString() === formData.roomId.toString());
+        // For NEW allocations, use the studentId from the selected DB1 student (formData)
+        const sId = editingStudent?.studentId ||
+            (editingStudent && !editingStudent.isAllocation ? editingStudent.id : null) ||
+            formData.studentId;
 
         const payload = {
             ...formData,
@@ -87,13 +179,14 @@ const StudentDetails = () => {
             studentId: sId,
             student: sId ? { id: sId } : null,
 
-            // Send FULL objects as requested
-            hostel: selectedHostel || {
+            // Send ONLY IDs for existing entities to avoid transient value errors
+            // JPA/Hibernate often fails if we send full objects with nulls or detached states
+            hostel: {
                 id: Number(formData.hostelId),
                 hostelId: Number(formData.hostelId)
             },
 
-            room: selectedRoom || {
+            room: {
                 id: Number(formData.roomId),
                 roomId: Number(formData.roomId),
                 roomNumber: formData.roomNumber
@@ -108,9 +201,9 @@ const StudentDetails = () => {
 
         console.log("Submitting Allocation Payload:", payload); // Debug log
 
-        if (editingStudent && editingStudent.isAllocation && editingStudent.allocationId) {
-            // Update existing allocation
-            updateStudent(editingStudent.allocationId, payload);
+        if (editingStudent && students.some(s => s.id === editingStudent.id)) {
+            // Update existing allocation (It's in the DB2 list)
+            updateStudent(editingStudent.id, payload);
         } else {
             // Create new allocation
             // Note: createAllocation requires a valid studentId. 
@@ -166,7 +259,16 @@ const StudentDetails = () => {
 
     const handleDelete = (id, studentName) => {
         if (window.confirm(`Are you sure you want to delete ${studentName}?`)) {
-            deleteStudent(id);
+            // Check if this student is a stored resident (exists in global 'students' context)
+            const isResident = students.some(s => s.id === id);
+
+            if (isResident) {
+                // It's a real allocation: delete from backend
+                deleteStudent(id);
+            } else {
+                // It's a transient view (unsaved): just remove from the list
+                setDisplayedStudents(prev => prev.filter(s => s.id !== id));
+            }
         }
     };
 
@@ -179,18 +281,160 @@ const StudentDetails = () => {
     const [searchTerm, setSearchTerm] = React.useState('');
     const [studentSelectionSearch, setStudentSelectionSearch] = React.useState('');
 
+    // DB1 Data State
+    const [allDB1Students, setAllDB1Students] = React.useState([]);
+    const [allDB1Parents, setAllDB1Parents] = React.useState([]);
+
+    // Fetch DB1 Students AND Parents for the Dropdown/Lookup
+    React.useEffect(() => {
+        const fetchDB1 = async () => {
+            try {
+                // Parallel fetch for better performance
+                const [studentsRes, parentsRes] = await Promise.all([
+                    campusService.getAllStudents(),
+                    campusService.getAllParents()
+                ]);
+
+                const studentData = Array.isArray(studentsRes) ? studentsRes : (studentsRes.data || studentsRes.students || []);
+                setAllDB1Students(studentData);
+
+                const parentData = Array.isArray(parentsRes) ? parentsRes : (parentsRes.data || parentsRes.parents || []);
+                setAllDB1Parents(parentData);
+            } catch (error) {
+                console.error("Failed to fetch DB1 data", error);
+            }
+        };
+        fetchDB1();
+    }, []);
+
+    // Sync displayedStudents with global students (DB2 residents) context
+    // AND keep manually added DB1 students visible (until they are saved and become residents)
+    React.useEffect(() => {
+        setDisplayedStudents(prevDisplayed => {
+            // 1. Get all current DB2 residents (fresh data)
+            const freshResidents = students;
+
+            // 2. Identify transient (unsaved) students currently in the view
+            // These are students from DB1 who are NOT yet in the DB2 list.
+            // FIX: Only keep transients that are explicitly marked as NEW_ENTRY (unsaved).
+            // This prevents deleted residents (who were ACTIVE) from reappearing as 'unsaved' items.
+            const residentStudentIds = new Set(freshResidents.map(r => r.studentId));
+            const transients = prevDisplayed.filter(d =>
+                d.status === 'NEW_ENTRY' &&
+                d.studentId &&
+                !residentStudentIds.has(d.studentId)
+            );
+
+            // 3. Merge: Residents + Transients
+            return [...freshResidents, ...transients];
+        });
+    }, [students]);
+
+
     const handleAddStudentToView = () => {
         if (!selectedStudentForView) return;
 
-        const studentToAdd = students.find(s => (s.id || s.studentId).toString() === selectedStudentForView);
-        if (studentToAdd) {
-            // Avoid duplicates
-            if (!displayedStudents.some(s => (s.id || s.studentId) === (studentToAdd.id || studentToAdd.studentId))) {
-                setDisplayedStudents([...displayedStudents, studentToAdd]);
-            }
-            setSelectedStudentForView(''); // Reset dropdown
+        // Find in DB1 list first
+        const db1Student = allDB1Students.find(s => (s.id || s.studentId).toString() === selectedStudentForView);
 
-            // Set global filter for other modules
+        // Check if this student is ALREADY a resident (in DB2 list)
+        // If so, prefer the resident object as it has room details
+        const existingResident = students.find(s =>
+            (s.studentId && db1Student && s.studentId === (db1Student.id || db1Student.studentId))
+        );
+
+        // Find Parent Info from DB1 Logic
+        let parentName = '';
+        let parentPhone = '';
+        if (db1Student && allDB1Parents.length > 0) {
+            try {
+                // Try to find via relationship ID (most reliable if structure holds)
+                const studentRelId = db1Student.parents?.[0]?.relId;
+
+                for (const p of allDB1Parents) {
+                    const pUser = p.user || p; // Handle nested user object
+                    const pStudents = p.students || pUser.students || [];
+
+                    // Check relation
+                    const match = pStudents.some(s => s.relId === studentRelId) ||
+                        pStudents.some(s => (s.id || s.studentId) === (db1Student.id || db1Student.studentId));
+
+                    if (match) {
+                        parentName = `${pUser.firstName || ''} ${pUser.lastName || ''}`.trim();
+                        parentPhone = pUser.phone || '';
+                        break;
+                    }
+                }
+            } catch (e) {
+                console.warn("Parent lookup failed", e);
+            }
+        }
+
+        const studentToAdd = existingResident || (db1Student ? {
+            ...db1Student,
+            id: db1Student.id || db1Student.studentId, // Temporary ID for table key
+            studentId: db1Student.id || db1Student.studentId, // DB1 ID
+
+            // Map for TABLE DISPLAY (accessors are lowercase)
+            firstname: db1Student.user?.firstName || db1Student.firstName,
+            lastname: db1Student.user?.lastName || db1Student.lastName,
+            email: db1Student.user?.email || db1Student.email,
+
+            // Map for FORM/EDIT
+            studentName: `${db1Student.user?.firstName || db1Student.firstName} ${db1Student.user?.lastName || db1Student.lastName}`,
+            studentEmail: db1Student.user?.email || db1Student.email,
+
+            // Populate fetched Parent Info
+            fatherName: parentName || db1Student.fatherName || '',
+            fatherPhone: parentPhone || db1Student.fatherPhone || '',
+
+            status: 'NEW_ENTRY', // distiguish in UI?
+            roomNumber: '-',
+            hostel: null,
+            room: null
+        } : null);
+
+        if (studentToAdd) {
+            // Check existence
+            const alreadyDisplayed = displayedStudents.some(s => (s.studentId || s.id) === (studentToAdd.studentId || studentToAdd.id));
+
+            if (!alreadyDisplayed) {
+                // AUTO-SAVE ATTEMPT
+                if (!existingResident) {
+                    // Try to save to DB2 immediately
+                    // Try to save to DB2 immediately
+                    const today = new Date().toISOString().split('T')[0];
+                    addStudent({
+                        studentId: studentToAdd.studentId,
+                        studentName: studentToAdd.studentName,
+                        firstname: studentToAdd.firstname, // Send explicit parts too just in case
+                        lastname: studentToAdd.lastname,
+                        studentEmail: studentToAdd.studentEmail,
+                        fatherName: studentToAdd.fatherName,
+                        fatherPhone: studentToAdd.fatherPhone,
+                        status: 'ACTIVE',
+                        hostel: null,
+                        room: null,
+                        // Defaults for required fields
+                        joinDate: today,
+                        monthlyFee: 0,
+                        totalFee: 0,
+                        amountPaid: 0,
+                        dueAmount: 0
+                    }).then(() => {
+                        console.log("Auto-saved student to DB2");
+                    }).catch(err => {
+                        console.warn("Auto-save failed.", err);
+                        const msg = err.response?.data?.message || err.message || "Unknown error";
+                        alert(`Auto-save failed: ${msg}. Added to view. Please assign a Room and Save manually.`);
+                    });
+                }
+
+                // Add to local view immediately (optimistic update)
+                setDisplayedStudents(prev => [...prev, studentToAdd]);
+            }
+
+            setSelectedStudentForView(''); // Reset dropdown
             setSelectedStudentFilter(studentToAdd);
         }
     };
@@ -221,7 +465,7 @@ const StudentDetails = () => {
         { header: 'Email', accessor: 'email' },
         { header: 'Parent Name', accessor: (row) => row.fatherName || '-' },
         { header: 'Parent Number', accessor: (row) => row.fatherPhone || '-' },
-        { header: 'Room No.', accessor: (row) => row.room?.roomNumber || row.roomNumber || '-' },
+        { header: 'Room Number', accessor: (row) => row.room?.roomNumber || row.roomNumber || '-' },
         {
             header: 'Status',
             accessor: 'status',
@@ -299,20 +543,37 @@ const StudentDetails = () => {
                                 style={{ maxHeight: '150px' }}
                             >
                                 <option value="" disabled>-- Select from results --</option>
-                                {students
-                                    .filter(s =>
-                                        !studentSelectionSearch ||
-                                        (s.studentName || '').toLowerCase().includes(studentSelectionSearch.toLowerCase()) ||
-                                        (s.email || '').toLowerCase().includes(studentSelectionSearch.toLowerCase())
-                                    )
-                                    .map(s => (
-                                        <option key={s.id || s.studentId} value={s.id || s.studentId}>
-                                            {s.studentName} ({s.email})
-                                        </option>
-                                    ))}
+                                {allDB1Students
+                                    .filter(s => {
+                                        if (!studentSelectionSearch) return true;
+                                        const term = studentSelectionSearch.toLowerCase();
+                                        const name = (s.user?.firstName || s.firstName || s.name || '').toLowerCase();
+                                        const lname = (s.user?.lastName || s.lastName || '').toLowerCase();
+                                        const email = (s.user?.email || s.email || '').toLowerCase();
+                                        return name.includes(term) || lname.includes(term) || email.includes(term);
+                                    })
+                                    .slice(0, 50) // Performance optimization
+                                    .map(s => {
+                                        const name = `${s.user?.firstName || s.firstName || s.name || ''} ${s.user?.lastName || s.lastName || ''}`.trim();
+                                        const email = s.user?.email || s.email || '';
+                                        return (
+                                            <option key={s.id || s.studentId} value={s.id || s.studentId}>
+                                                {name} {email ? `(${email})` : ''}
+                                            </option>
+                                        );
+                                    })}
                             </select>
                             <div className="form-text text-muted small mt-1 d-flex justify-content-between">
-                                <span>{studentSelectionSearch ? `Found ${students.filter(s => (s.studentName || '').toLowerCase().includes(studentSelectionSearch.toLowerCase()) || (s.email || '').toLowerCase().includes(studentSelectionSearch.toLowerCase())).length} matches` : `Total Students: ${students.length}`}</span>
+                                <span>
+                                    {studentSelectionSearch
+                                        ? `Found ${allDB1Students.filter(s => {
+                                            const term = studentSelectionSearch.toLowerCase();
+                                            const name = (s.user?.firstName || s.firstName || s.name || '').toLowerCase();
+                                            const email = (s.user?.email || s.email || '').toLowerCase();
+                                            return name.includes(term) || email.includes(term);
+                                        }).length} matches`
+                                        : `Total Students (DB1): ${allDB1Students.length}`}
+                                </span>
                                 {studentSelectionSearch && <span className="text-secondary cursor-pointer" onClick={() => setStudentSelectionSearch('')}>Clear Search</span>}
                             </div>
                         </div>
@@ -389,14 +650,46 @@ const StudentDetails = () => {
                                                     </span>
                                                     Personal Information
                                                 </h6>
+
+                                                {/* DB1 Search (Only for New Registration) */}
+                                                {!editingStudent && (
+                                                    <div className="mb-4 position-relative">
+                                                        <label className="form-label fw-bold text-info"><i className="bi bi-search me-1"></i>Search from Student Database (DB1)</label>
+                                                        <input
+                                                            type="text"
+                                                            className="form-control"
+                                                            placeholder="Type name or email to search..."
+                                                            value={db1SearchTerm}
+                                                            onChange={(e) => setDb1SearchTerm(e.target.value)}
+                                                        />
+                                                        {isSearchingDB1 && <div className="text-muted small mt-1">Searching...</div>}
+                                                        {db1SearchResults.length > 0 && (
+                                                            <ul className="list-group position-absolute w-100 shadow-lg" style={{ zIndex: 1050, maxHeight: '200px', overflowY: 'auto' }}>
+                                                                {db1SearchResults.map(s => (
+                                                                    <button
+                                                                        key={s.id || s.studentId}
+                                                                        type="button"
+                                                                        className="list-group-item list-group-item-action"
+                                                                        onClick={() => handleSelectDB1Student(s)}
+                                                                    >
+                                                                        <strong>{s.user?.firstName || s.firstName} {s.user?.lastName || s.lastName}</strong>
+                                                                        <br />
+                                                                        <small className="text-muted">{s.user?.email || s.email}</small>
+                                                                    </button>
+                                                                ))}
+                                                            </ul>
+                                                        )}
+                                                    </div>
+                                                )}
+
                                                 <div className="row g-4">
                                                     <div className="col-md-6 col-lg-3">
                                                         <label className="form-label fw-600 smaller text-uppercase text-muted ps-1">Student Name</label>
-                                                        <input type="text" className="form-control form-control-lg fs-6" name="studentName" value={formData.studentName} onChange={handleInputChange} placeholder="e.g. John Doe" required />
+                                                        <input type="text" className="form-control form-control-lg fs-6" name="studentName" value={formData.studentName} onChange={handleInputChange} placeholder="e.g. John Doe" required readOnly={!editingStudent} />
                                                     </div>
                                                     <div className="col-md-6 col-lg-3">
                                                         <label className="form-label fw-600 smaller text-uppercase text-muted ps-1">Email Address</label>
-                                                        <input type="email" className="form-control form-control-lg fs-6" name="studentEmail" value={formData.studentEmail} onChange={handleInputChange} placeholder="name@example.com" required />
+                                                        <input type="email" className="form-control form-control-lg fs-6" name="studentEmail" value={formData.studentEmail} onChange={handleInputChange} placeholder="name@example.com" required readOnly={!editingStudent} />
                                                     </div>
                                                     <div className="col-md-6 col-lg-3">
                                                         <label className="form-label fw-600 smaller text-uppercase text-muted ps-1">Parent Name</label>

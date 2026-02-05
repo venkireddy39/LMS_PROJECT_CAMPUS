@@ -11,7 +11,7 @@ const FeeManagement = () => {
     const [showModal, setShowModal] = React.useState(false);
     const [currentFee, setCurrentFee] = React.useState(null);
 
-    const { selectedStudentFilter } = useStudentContext();
+    const { selectedStudentFilter, getActiveStudents } = useStudentContext();
 
     React.useEffect(() => {
         loadFees();
@@ -100,6 +100,37 @@ const FeeManagement = () => {
             <header className="mb-4">
                 <h3 className="fw-bold text-main mb-1">Fee & Payment Management</h3>
                 <p className="text-muted small">Centralized collection and due tracking for campus residents.</p>
+
+                {/* Quick Edit Dropdown */}
+                <div className="mt-3 col-md-4">
+                    <label className="form-label fw-600 smaller text-uppercase text-muted">Quick Edit by Student</label>
+                    <select
+                        className="form-select border-primary bg-primary bg-opacity-5 rounded-pill text-primary fw-bold"
+                        onChange={(e) => {
+                            const selectedName = e.target.value;
+                            // Find the fee record based on the selected student name
+                            // Using find since names should be unique or best effort
+                            const record = fees.find(f => f.studentName === selectedName);
+
+                            if (record) {
+                                handleEditClick(record);
+                            } else {
+                                // Optional: Handle case where student exists but no fee record yet
+                                alert("No fee record found for this student.");
+                            }
+
+                            // Reset value so the change event fires again if needed
+                            e.target.value = "";
+                        }}
+                    >
+                        <option value="">Select a student to edit fees...</option>
+                        {getActiveStudents().map((s) => (
+                            <option key={s.id || s.studentId} value={s.name || s.studentName} className="text-dark fw-normal">
+                                {s.name || s.studentName}
+                            </option>
+                        ))}
+                    </select>
+                </div>
             </header>
 
             <DataTable

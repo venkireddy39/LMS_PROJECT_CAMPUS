@@ -6,6 +6,7 @@ import { useStudentContext } from '../../context/StudentContext';
 const Complaints = () => {
     const { students, refreshStudents, selectedStudentFilter } = useStudentContext();
     const [issues, setIssues] = React.useState([]);
+    const [hostels, setHostels] = React.useState([]);
     const [showModal, setShowModal] = React.useState(false);
     const [currentIssue, setCurrentIssue] = React.useState(null);
     const [isNewIssue, setIsNewIssue] = React.useState(false);
@@ -13,6 +14,7 @@ const Complaints = () => {
     React.useEffect(() => {
         refreshStudents(); // Ensure we have the latest student list
         loadComplaints();
+        loadHostels();
     }, []);
 
     const filteredIssues = selectedStudentFilter
@@ -25,6 +27,15 @@ const Complaints = () => {
             setIssues(data || []);
         } catch (error) {
             console.error("Failed to load complaints", error);
+        }
+    };
+
+    const loadHostels = async () => {
+        try {
+            const data = await campusService.getAllHostels(); // Assuming this endpoint exists in service
+            setHostels(data || []);
+        } catch (error) {
+            console.error("Failed to load hostels", error);
         }
     };
 
@@ -64,7 +75,7 @@ const Complaints = () => {
             studentName: selectedName,
             // Auto-fill room/hostel if available in student data
             roomNumber: student?.roomNumber || student?.roomNo || currentIssue.roomNumber,
-            hostelName: student?.hostelName || student?.hostel?.hostelName || currentIssue.hostelName
+            hostelName: student?.hostel?.hostelName || student?.hostelName || currentIssue.hostelName
         });
     };
 
@@ -191,7 +202,24 @@ const Complaints = () => {
                                         </div>
                                         <div className="col-md-6">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Hostel Name</label>
-                                            <input type="text" className="form-control" name="hostelName" value={currentIssue.hostelName} onChange={handleInputChange} placeholder="e.g. Boys Luxury Residency" required />
+                                            <select
+                                                className="form-select"
+                                                name="hostelName"
+                                                value={currentIssue.hostelName || ''}
+                                                onChange={handleInputChange}
+                                                required
+                                            >
+                                                <option value="">Select Hostel...</option>
+                                                {hostels && hostels.length > 0 ? (
+                                                    hostels.map(h => (
+                                                        <option key={h.id || h.hostelId} value={h.hostelName}>
+                                                            {h.hostelName}
+                                                        </option>
+                                                    ))
+                                                ) : (
+                                                    <option disabled>No hostels loaded</option>
+                                                )}
+                                            </select>
                                         </div>
                                         <div className="col-md-6">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Room Number</label>
@@ -232,10 +260,12 @@ const Complaints = () => {
                                                 <option value="CLOSED">🔒 CLOSED</option>
                                             </select>
                                         </div>
-                                        <div className="col-md-12">
-                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Admin Remarks</label>
-                                            <textarea className="form-control" name="remarks" value={currentIssue.remarks} onChange={handleInputChange} rows="2" placeholder="Resolution details or internal notes..."></textarea>
-                                        </div>
+                                        {!isNewIssue && (
+                                            <div className="col-md-12">
+                                                <label className="form-label fw-600 smaller text-uppercase text-muted">Admin Remarks</label>
+                                                <textarea className="form-control" name="remarks" value={currentIssue.remarks} onChange={handleInputChange} rows="2" placeholder="Resolution details or internal notes..."></textarea>
+                                            </div>
+                                        )}
                                     </div>
                                     <div className="mt-5 d-flex gap-2 justify-content-end">
                                         <button type="button" className="btn btn-light px-4 rounded-pill fw-500" onClick={() => setShowModal(false)}>Cancel</button>

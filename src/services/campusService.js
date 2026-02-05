@@ -18,6 +18,9 @@ const request = async (endpoint, options = {}) => {
     }
     const defaultHeaders = {
         'Content-Type': 'application/json',
+        'Cache-Control': 'no-cache',
+        'Pragma': 'no-cache',
+        'Expires': '0',
     };
 
     // ONLY add token if NOT logging in

@@ -7,12 +7,14 @@ import { useStudentContext } from '../../context/StudentContext';
 const HealthIssues = () => {
     const { getActiveStudents, selectedStudentFilter } = useStudentContext();
     const [records, setRecords] = useState([]);
+    const [hostels, setHostels] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [currentRecord, setCurrentRecord] = useState(null);
     const [isNewRecord, setIsNewRecord] = useState(false);
 
     useEffect(() => {
         loadRecords();
+        loadHostels();
     }, []);
 
     const filteredRecords = selectedStudentFilter
@@ -28,12 +30,23 @@ const HealthIssues = () => {
         }
     };
 
+    const loadHostels = async () => {
+        try {
+            const data = await campusService.getAllHostels();
+            setHostels(data || []);
+        } catch (error) {
+            console.error("Failed to load hostels", error);
+        }
+    };
+
     const handleAddNewClick = () => {
         setCurrentRecord({
             studentName: '',
-            issue: '',
-            severity: 'Low',
-            status: 'Under Observation',
+            hostelName: '',
+            roomNumber: '',
+            medicalIssueType: '',
+            severity: 'LOW',
+            status: 'OBSERVATION',
             reportedDate: new Date().toISOString().split('T')[0],
             studentPhone: '',
             parentPhone: '',
@@ -56,13 +69,16 @@ const HealthIssues = () => {
 
     const handleStudentSelect = (e) => {
         const studentName = e.target.value;
-        const student = getActiveStudents().find(s => s.name === studentName);
+        const student = getActiveStudents().find(s => s.name === studentName || s.studentName === studentName);
         if (student) {
             setCurrentRecord({
                 ...currentRecord,
-                studentName: student.name,
+                studentName: student.name || student.studentName,
                 studentPhone: student.phone || 'N/A',
-                parentPhone: student.fatherPhone || 'N/A'
+                parentPhone: student.fatherPhone || 'N/A',
+                // Auto-fill location
+                roomNumber: student.roomNumber || student.roomNo || '',
+                hostelName: student.hostel?.hostelName || student.hostelName || ''
             });
         }
     };
@@ -88,21 +104,22 @@ const HealthIssues = () => {
 
     const stats = {
         total: records.length,
-        pending: records.filter(r => r.status === 'Under Observation').length,
-        resolved: records.filter(r => r.status === 'Resolved').length,
-        hospitalized: records.filter(r => r.status === 'Hospitalized').length
+        pending: records.filter(r => r.status === 'OBSERVATION' || r.status === 'MEDICATED').length,
+        resolved: records.filter(r => r.status === 'RECOVERED').length,
+        hospitalized: records.filter(r => r.status === 'HOSPITALIZED').length
     };
 
     const columns = [
         { header: 'Student Name', accessor: 'studentName', render: (row) => <span className="fw-600">{row.studentName}</span> },
-        { header: 'Medical Issue', accessor: 'issue' },
+        { header: 'Medical Issue Type', accessor: 'medicalIssueType' },
         {
             header: 'Severity',
             accessor: 'severity',
             render: (row) => {
                 let badgeClass = 'bg-secondary bg-opacity-10 text-secondary';
-                if (row.severity === 'High') badgeClass = 'bg-danger bg-opacity-10 text-danger';
-                if (row.severity === 'Medium') badgeClass = 'bg-warning bg-opacity-10 text-warning-emphasis';
+                if (row.severity === 'CRITICAL') badgeClass = 'bg-danger text-danger border border-danger';
+                else if (row.severity === 'HIGH') badgeClass = 'bg-danger bg-opacity-10 text-danger';
+                else if (row.severity === 'MEDIUM') badgeClass = 'bg-warning bg-opacity-10 text-warning-emphasis';
                 return <span className={`badge rounded-pill px-3 py-2 fw-bold ${badgeClass}`}>{row.severity}</span>;
             }
         },
@@ -121,9 +138,10 @@ const HealthIssues = () => {
             accessor: 'status',
             render: (row) => {
                 let badgeClass = 'bg-secondary bg-opacity-10 text-secondary';
-                if (row.status === 'Resolved') badgeClass = 'bg-success bg-opacity-10 text-success';
-                if (row.status === 'Under Observation') badgeClass = 'bg-primary bg-opacity-10 text-primary';
-                if (row.status === 'Hospitalized') badgeClass = 'bg-danger bg-opacity-10 text-danger';
+                if (row.status === 'RECOVERED') badgeClass = 'bg-success bg-opacity-10 text-success';
+                if (row.status === 'OBSERVATION') badgeClass = 'bg-primary bg-opacity-10 text-primary';
+                if (row.status === 'MEDICATED') badgeClass = 'bg-info bg-opacity-10 text-info';
+                if (row.status === 'HOSPITALIZED') badgeClass = 'bg-danger bg-opacity-10 text-danger';
                 return <span className={`badge rounded-pill px-3 py-2 fw-bold ${badgeClass}`}>{row.status}</span>;
             }
         },
@@ -203,45 +221,77 @@ const HealthIssues = () => {
                                             <select className="form-select" name="studentName" value={currentRecord.studentName} onChange={handleStudentSelect} required disabled={!isNewRecord}>
                                                 <option value="">Choose resident...</option>
                                                 {getActiveStudents().map(s => (
-                                                    <option key={s.id} value={s.name}>{s.name} (Room {s.roomNo || s.roomNumber})</option>
+                                                    <option key={s.id} value={s.name}>{s.name || s.studentName}</option>
                                                 ))}
                                             </select>
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Nature of Complaint</label>
-                                            <input type="text" className="form-control" name="issue" value={currentRecord.issue} onChange={handleInputChange} placeholder="e.g. Sharp Headache, High Fever" required />
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Medical Issue Type</label>
+                                            <select className="form-select" name="medicalIssueType" value={currentRecord.medicalIssueType} onChange={handleInputChange} required>
+                                                <option value="">SELECT ISSUE...</option>
+                                                <option value="FEVER">FEVER</option>
+                                                <option value="HEADACHE">HEADACHE</option>
+                                                <option value="COLD_FLU">COLD_FLU</option>
+                                                <option value="STOMACH_PAIN">STOMACH_PAIN</option>
+                                                <option value="INJURY">INJURY</option>
+                                                <option value="BODY_PAIN">BODY_PAIN</option>
+                                                <option value="DIZZINESS">DIZZINESS</option>
+                                                <option value="FOOD_POISONING">FOOD_POISONING</option>
+                                                <option value="ALLERGY">ALLERGY</option>
+                                                <option value="OTHER">OTHER</option>
+                                            </select>
                                         </div>
                                         <div className="col-md-4">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Severity</label>
                                             <select className="form-select" name="severity" value={currentRecord.severity} onChange={handleInputChange}>
-                                                <option value="Low">Low (Minor)</option>
-                                                <option value="Medium">Medium (Moderate)</option>
-                                                <option value="High">High (Urgent)</option>
+                                                <option value="LOW">LOW</option>
+                                                <option value="MEDIUM">MEDIUM</option>
+                                                <option value="HIGH">HIGH</option>
+                                                <option value="CRITICAL">CRITICAL</option>
                                             </select>
                                         </div>
                                         <div className="col-md-4">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Current Status</label>
                                             <select className="form-select" name="status" value={currentRecord.status} onChange={handleInputChange}>
-                                                <option value="Under Observation">Observation</option>
-                                                <option value="Resolved">Resolved</option>
-                                                <option value="Hospitalized">Hospitalized</option>
+                                                <option value="OBSERVATION">OBSERVATION</option>
+                                                <option value="MEDICATED">MEDICATED</option>
+                                                <option value="HOSPITALIZED">HOSPITALIZED</option>
+                                                <option value="RECOVERED">RECOVERED</option>
                                             </select>
                                         </div>
                                         <div className="col-md-4">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Reporting Date</label>
                                             <input type="date" className="form-control" name="reportedDate" value={currentRecord.reportedDate} onChange={handleInputChange} required />
                                         </div>
+
                                         <div className="col-md-6">
-                                            <div className="p-3 bg-primary bg-opacity-5 rounded-3 border-dashed">
-                                                <label className="form-label fw-600 smaller text-uppercase text-muted mb-2">Student Contact</label>
-                                                <div className="fw-bold text-main">{currentRecord.studentPhone || '---'}</div>
-                                            </div>
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Parent Contact</label>
+                                            <input type="text" className="form-control" name="parentPhone" value={currentRecord.parentPhone || ''} onChange={handleInputChange} placeholder="Enter parent contact" required />
                                         </div>
                                         <div className="col-md-6">
-                                            <div className="p-3 bg-primary bg-opacity-5 rounded-3 border-dashed">
-                                                <label className="form-label fw-600 smaller text-uppercase text-muted mb-2">Parent Contact</label>
-                                                <div className="fw-bold text-main">{currentRecord.parentPhone || '---'}</div>
-                                            </div>
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Hostel Name</label>
+                                            <select
+                                                className="form-select"
+                                                name="hostelName"
+                                                value={currentRecord.hostelName || ''}
+                                                onChange={handleInputChange}
+                                                required
+                                            >
+                                                <option value="">Select Hostel...</option>
+                                                {hostels && hostels.length > 0 ? (
+                                                    hostels.map(h => (
+                                                        <option key={h.id || h.hostelId} value={h.hostelName}>
+                                                            {h.hostelName}
+                                                        </option>
+                                                    ))
+                                                ) : (
+                                                    <option disabled>No hostels loaded</option>
+                                                )}
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Room Number</label>
+                                            <input type="text" className="form-control" name="roomNumber" value={currentRecord.roomNumber || ''} onChange={handleInputChange} placeholder="e.g. 302-A" required />
                                         </div>
                                         <div className="col-md-12">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Clinical Notes / Action Taken</label>
