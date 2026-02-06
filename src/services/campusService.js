@@ -245,14 +245,34 @@ export const campusService = {
         return request(`/allocations/${id}/status?${params.toString()}`, { method: 'PATCH' });
     },
 
-    updatePayment: (id, amountPaid, paymentDate = null) => {
-        const params = new URLSearchParams();
-        params.append('amountPaid', amountPaid);
-        if (paymentDate) params.append('paymentDate', paymentDate);
-        return request(`/allocations/${id}/payment?${params.toString()}`, { method: 'PATCH' });
+    deleteAllocation: (id) => request(`/allocations/${id}`, { method: 'DELETE' }),
+
+    // ================= HOSTEL FEES =================
+
+    createFee: (feeData) => request('/fees', {
+        method: 'POST',
+        body: JSON.stringify(feeData)
+    }),
+
+    getAllFees: (status = null) => {
+        const query = status ? `?status=${status}` : '';
+        return request(`/fees${query}`, { method: 'GET' });
     },
 
-    deleteAllocation: (id) => request(`/allocations/${id}`, { method: 'DELETE' }),
+    getFeeById: (id) => request(`/fees/${id}`, { method: 'GET' }),
+
+    // Matches PATCH /fees/{id}/payment?amount=...
+    updateFeePayment: (id, amount) => {
+        return request(`/fees/${id}/payment?amount=${amount}`, { method: 'PATCH' });
+    },
+
+    // Matches PUT /fees/{id}
+    updateFee: (id, feeData) => request(`/fees/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify(feeData)
+    }),
+
+    deleteFee: (id) => request(`/fees/${id}`, { method: 'DELETE' }),
 
     // ================= STUDENT VISIT ENTRY =================
 

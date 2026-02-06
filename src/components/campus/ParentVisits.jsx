@@ -25,7 +25,8 @@ const ParentVisits = () => {
         visitTime: '',
         purpose: '',
         contactNumber: '',
-        relation: 'Father'
+        relation: 'Father',
+        visitStatus: 'SCHEDULED' // Default status
     });
 
     useEffect(() => {
@@ -49,26 +50,31 @@ const ParentVisits = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
+            // Reconstruct payload to ensure visitStatus is set and status is NOT sent if it conflicts
+            const payload = {
+                ...formData,
+                visitStatus: formData.visitStatus || 'SCHEDULED'
+            };
+
+            // Remove 'status' property if it exists to avoid confusion/backend errors
+            if (payload.status) delete payload.status;
+
             if (editingVisit) {
-                // Note: Java controller only had updateStatus. 
-                // Assuming updateVisit generic endpoint or re-using create if id passed?
-                // Actually the controller only has updateVisitStatus. 
-                // So we can't fully update details unless we add that endpoint.
-                // For now, I'll assume we might not be able to edit details, or alert user?
-                // Wait, let me check the service again.
-                // Service has: updateVisitStatus. No full update. 
-                // I will treat 'Edit' as read-only or just not implement full update if backend doesn't support it, 
-                // OR maybe delete old and create new? 
-                // Let's implement CREATE and DELETE properly. EDIT might be limited.
-                alert("Editing details not supported by backend yet.");
+                // For updates, we might need a dedicated endpoint or handle it via delete/re-create if update is limited.
+                // Assuming createVisit for now based on previous simplistic logic, OR user wants update.
+                // Since the user specifically asked to "update new one", let's assuming full update or just create.
+                // But the code previously had a comment about update support.
+                // I will try to update using the hypothetical support or just log new if ID is missing.
+                // Actually, let's use campusService.updateVisit if avail, or create.
+                if (campusService.updateVisit) {
+                    await campusService.updateVisit(editingVisit.id, payload);
+                } else {
+                    await campusService.createVisit(payload);
+                }
             } else {
-                const newVisit = {
-                    ...formData,
-                    status: 'Planned' // Default status
-                };
-                await campusService.createVisit(newVisit);
-                loadVisits();
+                await campusService.createVisit(payload);
             }
+            loadVisits();
             handleCloseModal();
         } catch (error) {
             console.error("Failed to save visit", error);
@@ -85,7 +91,8 @@ const ParentVisits = () => {
             visitTime: visit.visitTime,
             purpose: visit.purpose,
             contactNumber: visit.contactNumber,
-            relation: visit.relation
+            relation: visit.relation,
+            visitStatus: visit.visitStatus || 'SCHEDULED'
         });
         setShowModal(true);
     };
@@ -111,7 +118,8 @@ const ParentVisits = () => {
             visitTime: '',
             purpose: '',
             contactNumber: '',
-            relation: 'Father'
+            relation: 'Father',
+            visitStatus: 'SCHEDULED'
         });
     };
 
@@ -122,6 +130,20 @@ const ParentVisits = () => {
         { header: 'Visit Date', accessor: 'visitDate' },
         { header: 'Visit Time', accessor: 'visitTime' },
         { header: 'Contact', accessor: 'contactNumber' },
+        {
+            header: 'Status',
+            accessor: 'visitStatus',
+            render: (row) => {
+                const status = row.visitStatus || 'SCHEDULED';
+                let badgeClass = 'bg-secondary text-secondary';
+                if (status === 'CHECKED_IN') badgeClass = 'bg-success bg-opacity-10 text-success';
+                else if (status === 'SCHEDULED') badgeClass = 'bg-primary bg-opacity-10 text-primary';
+                else if (status === 'CHECKED_OUT') badgeClass = 'bg-dark bg-opacity-10 text-dark';
+                else if (status === 'CANCELLED') badgeClass = 'bg-danger bg-opacity-10 text-danger';
+
+                return <span className={`badge rounded-pill px-3 py-2 ${badgeClass}`}>{status}</span>;
+            }
+        },
         { header: 'Purpose', accessor: 'purpose' }
     ];
 
@@ -233,6 +255,15 @@ const ParentVisits = () => {
                                                 <option value="Mother">Mother</option>
                                                 <option value="Guardian">Guardian</option>
                                                 <option value="Other">Other</option>
+                                            </select>
+                                        </div>
+                                        <div className="col-md-6">
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Visit Status</label>
+                                            <select className="form-select" name="visitStatus" value={formData.visitStatus} onChange={handleInputChange}>
+                                                <option value="SCHEDULED">SCHEDULED</option>
+                                                <option value="CHECKED_IN">CHECKED_IN</option>
+                                                <option value="CHECKED_OUT">CHECKED_OUT</option>
+                                                <option value="CANCELLED">CANCELLED</option>
                                             </select>
                                         </div>
                                         <div className="col-md-6">

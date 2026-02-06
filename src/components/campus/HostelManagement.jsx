@@ -71,11 +71,25 @@ const HostelManagement = () => {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
+
+        // Prepare sanitised payload
+        const payload = {
+            ...newHostel,
+            // Ensure numeric types for integer fields
+            totalBlocks: parseInt(newHostel.totalBlocks, 10) || 0,
+            totalRooms: parseInt(newHostel.totalRooms, 10) || 0,
+            // Send 'name' as alias for 'hostelName' in case backend expects 'name'
+            name: newHostel.hostelName,
+            hostelName: newHostel.hostelName
+        };
+
+        console.log("Submitting Hostel Payload:", payload);
+
         try {
             if (isEditing) {
-                await campusService.updateHostel(editHostelId, newHostel);
+                await campusService.updateHostel(editHostelId, payload);
             } else {
-                await campusService.createHostel(newHostel);
+                await campusService.createHostel(payload);
             }
             loadHostels(); // Refresh list
             setShowModal(false);
@@ -88,8 +102,8 @@ const HostelManagement = () => {
 
     const filteredHostels = useMemo(() => {
         return hostelList.filter(hostel =>
-            hostel.hostelName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            hostel.wardenName.toLowerCase().includes(searchTerm.toLowerCase())
+            (hostel.hostelName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+            (hostel.wardenName?.toLowerCase() || '').includes(searchTerm.toLowerCase())
         );
     }, [hostelList, searchTerm]);
 

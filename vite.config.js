@@ -87,6 +87,12 @@ export default defineConfig({
         secure: false,
 
       },
+      '/fees': {
+        target: 'http://192.168.1.25:9191',
+        changeOrigin: true,
+        secure: false,
+
+      },
       '/admin': {
         target: 'http://192.168.1.34:8081',
         changeOrigin: true,

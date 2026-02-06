@@ -5,7 +5,7 @@ import campusService from '../../services/campusService';
 import { useStudentContext } from '../../context/StudentContext';
 
 const HealthIssues = () => {
-    const { getActiveStudents, selectedStudentFilter } = useStudentContext();
+    const { getActiveStudents, selectedStudentFilter, setSelectedStudentFilter } = useStudentContext();
     const [records, setRecords] = useState([]);
     const [hostels, setHostels] = useState([]);
     const [showModal, setShowModal] = useState(false);
@@ -23,19 +23,40 @@ const HealthIssues = () => {
 
     const loadRecords = async () => {
         try {
-            const data = await campusService.getAllIncidents();
+            const response = await campusService.getAllIncidents();
+            console.log("Fetched Health Records:", response);
+
+            let data = [];
+            if (Array.isArray(response)) {
+                data = response;
+            } else if (response?.data && Array.isArray(response.data)) {
+                data = response.data;
+            } else if (response?.content && Array.isArray(response.content)) {
+                data = response.content;
+            }
+
             setRecords(data || []);
         } catch (error) {
             console.error("Failed to load health records", error);
+            setRecords([]);
         }
     };
 
     const loadHostels = async () => {
         try {
-            const data = await campusService.getAllHostels();
+            const response = await campusService.getAllHostels();
+            let data = [];
+            if (Array.isArray(response)) {
+                data = response;
+            } else if (response?.data && Array.isArray(response.data)) {
+                data = response.data;
+            } else if (response?.content && Array.isArray(response.content)) {
+                data = response.content;
+            }
             setHostels(data || []);
         } catch (error) {
             console.error("Failed to load hostels", error);
+            setHostels([]);
         }
     };
 
@@ -57,7 +78,13 @@ const HealthIssues = () => {
     };
 
     const handleEditClick = (record) => {
-        setCurrentRecord({ ...record });
+        setCurrentRecord({
+            ...record,
+            // Normalize status: use existing status or fallback to currentStatus, defaulted to OBSERVATION
+            status: record.status || record.currentStatus || 'OBSERVATION',
+            // Normalize remarks: use proper key alias if needed
+            remarks: record.remarks || record.clinicalNotes || ''
+        });
         setIsNewRecord(false);
         setShowModal(true);
     };
@@ -86,13 +113,30 @@ const HealthIssues = () => {
     const handleSave = async (e) => {
         e.preventDefault();
         try {
+            // Prepare payload with aliases to satisfy potential backend field names
+            const payload = {
+                ...currentRecord,
+                // Ensure status is sent in both common keys
+                status: currentRecord.status,
+                currentStatus: currentRecord.status,
+                // Map remarks to clinicalNotes as backend often uses that term
+                clinicalNotes: currentRecord.remarks
+            };
+
+            console.log("Submitting Health Record Payload:", payload);
+
             if (isNewRecord) {
                 // Ensure ID is not sent for new creation if backend generates it
-                const { id, ...recordData } = currentRecord;
+                const { id, ...recordData } = payload;
                 await campusService.createIncident(recordData);
             } else {
-                await campusService.updateIncident(currentRecord.id, currentRecord);
+                // Standard details update
+                await campusService.updateIncidentFull(currentRecord.id, payload);
+                // FORCE status update via specialized PATCH endpoint (fixes persistence issue)
+                await campusService.updateIncident(currentRecord.id, currentRecord.status, currentRecord.remarks);
             }
+            // Small delay to ensure backend commit
+            await new Promise(resolve => setTimeout(resolve, 500));
             loadRecords();
             setShowModal(false);
             setCurrentRecord(null);
@@ -111,6 +155,7 @@ const HealthIssues = () => {
 
     const columns = [
         { header: 'Student Name', accessor: 'studentName', render: (row) => <span className="fw-600">{row.studentName}</span> },
+        { header: 'Hostel Name', accessor: 'hostelName' },
         { header: 'Medical Issue Type', accessor: 'medicalIssueType' },
         {
             header: 'Severity',
@@ -137,12 +182,16 @@ const HealthIssues = () => {
             header: 'Current Status',
             accessor: 'status',
             render: (row) => {
+                const status = row.status || row.currentStatus || 'N/A';
+                const upperStatus = String(status).toUpperCase();
+
                 let badgeClass = 'bg-secondary bg-opacity-10 text-secondary';
-                if (row.status === 'RECOVERED') badgeClass = 'bg-success bg-opacity-10 text-success';
-                if (row.status === 'OBSERVATION') badgeClass = 'bg-primary bg-opacity-10 text-primary';
-                if (row.status === 'MEDICATED') badgeClass = 'bg-info bg-opacity-10 text-info';
-                if (row.status === 'HOSPITALIZED') badgeClass = 'bg-danger bg-opacity-10 text-danger';
-                return <span className={`badge rounded-pill px-3 py-2 fw-bold ${badgeClass}`}>{row.status}</span>;
+                if (upperStatus === 'RECOVERED') badgeClass = 'bg-success bg-opacity-10 text-success';
+                else if (upperStatus === 'OBSERVATION') badgeClass = 'bg-primary bg-opacity-10 text-primary';
+                else if (upperStatus === 'MEDICATED') badgeClass = 'bg-info bg-opacity-10 text-info';
+                else if (upperStatus === 'HOSPITALIZED') badgeClass = 'bg-danger bg-opacity-10 text-danger';
+
+                return <span className={`badge rounded-pill px-3 py-2 fw-bold ${badgeClass}`}>{status}</span>;
             }
         },
         {
@@ -162,6 +211,17 @@ const HealthIssues = () => {
                 <div>
                     <h3 className="fw-bold text-main mb-1">Health & Wellness Tracker</h3>
                     <p className="text-muted small">Centralized monitoring for student health and medical emergencies.</p>
+                    {selectedStudentFilter && (
+                        <div className="d-flex align-items-center gap-2 mt-2">
+                            <span className="badge bg-primary bg-opacity-10 text-primary border border-primary border-opacity-25">
+                                <i className="bi bi-funnel-fill me-1"></i>
+                                Filtered by: {selectedStudentFilter.studentName || selectedStudentFilter.name}
+                            </span>
+                            <button className="btn btn-sm btn-link text-muted text-decoration-none p-0" onClick={() => setSelectedStudentFilter(null)}>
+                                Clear Filter
+                            </button>
+                        </div>
+                    )}
                 </div>
             </header>
 

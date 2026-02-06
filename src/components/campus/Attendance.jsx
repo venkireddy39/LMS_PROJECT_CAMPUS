@@ -129,49 +129,46 @@ const Attendance = () => {
             return;
         }
 
-        const activeStudents = getActiveStudents();
-        if (activeStudents.length === 0) {
-            alert('No active residents found in the system. Please add students first.');
-            return;
-        }
-
-        const newRecords = activeStudents.map((student, index) => ({
-            studentName: student.name,
-            rollNo: `CS${100 + student.id}`, // Or student.rollNo if available
-            roomNo: student.roomNumber || student.roomNo,
-            date: date,
-            status: 'Present',
-            remarks: ''
-        }));
-
         try {
-            // Need batch create or loop. Service has createAttendance causing single post?
-            // Service.markAttendance takes attendanceData. Is it list or single? 
-            // Usually markAttendance implies batch if it's for class. 
-            // But let's check input of markAttendance in service.
-            // It sends POST to /attendance. 
-            // If backend accepts list, we send list. If single, we loop.
-            // Assuming backend accepts list for bulk attendance or we loop. 
-            // Let's safe loop for now if unsure, or send list if backend is smart.
-            // Re-reading service: createAttendance (markAttendance) takes body.
-            // I'll assume batch if I send array, otherwise loop. 
-            // To be safe I'll try sending the array first? No, usually safer to loop in frontend if API undefined.
-            // Actually, let's look at `markAttendance` in `campusService`:
-            // markAttendance: (attendanceData) => request('/attendance', { method: 'POST', body: JSON.stringify(attendanceData) })
-            // It likely expects a single object based on singlur naming? Or list?
-            // "attendanceData" name is ambiguous. 
-            // Ill try to send one by one for now to ensure it works, or maybe backend handles list.
-            // Let's try sending list first? If it fails, I'll fix. 
-            // Actually, safer to loop.
+            // Fetch fresh list of residents directly from backend
+            console.log("Fetching resident list for attendance...");
+            const response = await campusService.getAllAllocations();
+            let residents = [];
+            if (Array.isArray(response)) {
+                residents = response;
+            } else if (response && Array.isArray(response.data)) {
+                residents = response.data;
+            } else if (response && Array.isArray(response.content)) {
+                residents = response.content;
+            }
 
-            // Wait, making 50 requests is bad. 
-            // I will assume backend takes a list.
-            await campusService.markAttendance(newRecords);
+            if (residents.length === 0) {
+                alert('No active residents found in the system. Please add students first.');
+                return;
+            }
 
-            // If that fails, user will report. 
+            const newRecords = residents.map((student) => ({
+                studentName: student.studentName || student.name,
+                // Ensure we send correct IDs to link attendance (studentId or allocationId)
+                studentId: student.studentId || (student.id),
+                rollNo: student.rollNo || `CS${100 + (student.studentId || 0)}`,
+                roomNo: student.roomNumber || student.roomNo || '',
+                date: date,
+                status: 'Present',
+                remarks: ''
+            }));
+
+            console.log("Submitting New Attendance list sequentially:", newRecords);
+
+            // Send sequentially as backend rejects Array
+            for (const record of newRecords) {
+                await campusService.markAttendance(record);
+            }
+
+            // Reload to show the new list
             loadAttendance();
             setFilter('All');
-            alert(`Successfully logged attendance for ${activeStudents.length} residents.`);
+            alert(`Successfully logged attendance for ${residents.length} residents.`);
         } catch (error) {
             console.error("Failed to mark attendance", error);
             alert("Failed to mark attendance. Ensure backend supports bulk creation or check console.");

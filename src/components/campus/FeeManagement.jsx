@@ -19,19 +19,59 @@ const FeeManagement = () => {
 
     const loadFees = async () => {
         try {
-            // Fetch allocations which should serve as the source of truth for fees
-            const data = await campusService.getAllAllocations();
-            // Transform data if necessary. Assuming backend returns list with fee fields.
-            // If backend returns raw allocations without calculated fees, we might need to map it.
-            // For now, assuming direct mapping or simple transformation.
-            setFees(data || []);
+            // Fetch both Fees and Allocations (Residents)
+            const [feesData, allocationsData] = await Promise.all([
+                campusService.getAllFees(),
+                campusService.getAllAllocations()
+            ]);
+
+            const feesList = feesData || [];
+            const allocationsList = allocationsData || [];
+
+            // Deduplication: Use a Map/Set to ensure unique students
+            const processedStudents = new Set();
+            const mergedData = [];
+
+            allocationsList.forEach(student => {
+                // Create a unique key (fallback to name if ID missing)
+                const uniqueKey = (student.studentId || student.id || student.studentName).toString();
+
+                if (processedStudents.has(uniqueKey)) return; // Skip duplicate
+
+                // Find matching fee record
+                const feeRecord = feesList.find(f =>
+                    (f.studentId && f.studentId === student.studentId) ||
+                    (f.studentName === student.studentName)
+                );
+
+                if (feeRecord) {
+                    mergedData.push({ ...student, ...feeRecord, id: feeRecord.feeId });
+                } else {
+                    // Create placeholder for resident without fee record
+                    mergedData.push({
+                        id: `temp-${student.id}`,
+                        studentName: student.studentName,
+                        studentId: student.studentId || student.id,
+                        monthlyFee: 0,
+                        totalFee: 0,
+                        amountPaid: 0,
+                        dueAmount: 0,
+                        status: 'DUE',
+                        lastPaymentDate: '',
+                        isNew: true // Flag to trigger create instead of update
+                    });
+                }
+                processedStudents.add(uniqueKey);
+            });
+
+            setFees(mergedData);
         } catch (error) {
             console.error("Failed to load fee records", error);
         }
     };
 
     const filteredFees = selectedStudentFilter
-        ? fees.filter(f => f.studentName === selectedStudentFilter.studentName || f.studentId === selectedStudentFilter.studentId)
+        ? fees.filter(f => f.studentName === selectedStudentFilter.studentName || f.studentName === selectedStudentFilter.name)
         : fees;
 
     const handleEditClick = (feeRecord) => {
@@ -41,28 +81,87 @@ const FeeManagement = () => {
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
-        setCurrentFee({ ...currentFee, [name]: value });
+
+        // Auto-calculate Due Amount if Total or Paid changes
+        if (name === 'totalFee' || name === 'amountPaid') {
+            const total = name === 'totalFee' ? parseFloat(value || 0) : parseFloat(currentFee.totalFee || 0);
+            const paid = name === 'amountPaid' ? parseFloat(value || 0) : parseFloat(currentFee.amountPaid || 0);
+
+            setCurrentFee({
+                ...currentFee,
+                [name]: value,
+                dueAmount: total - paid
+            });
+        } else {
+            setCurrentFee({ ...currentFee, [name]: value });
+        }
     };
 
     const handleSave = async (e) => {
         e.preventDefault();
         try {
-            // Use updatePayment or updateAllocationStatus based on what changed, 
-            // or a generic update if available. Service has updatePayment.
-            // currentFee might have fields mapped to what backend expects.
-            // Let's assume we update payment info.
-            if (currentFee.id) {
-                await campusService.updatePayment(currentFee.id, currentFee.amountPaid, currentFee.lastPaymentDate);
-                // If status update is separate:
-                // await campusService.updateAllocationStatus(currentFee.id, currentFee.status);
-                // For now, calling updatePayment.
+            // Determine if it's new based on flag or if ID starts with 'temp-'
+            // Ensure we treat it as new if feeId is null/undefined
+            const isNewRecord = currentFee.isNew || String(currentFee.id).startsWith('temp-') || !currentFee.feeId;
+            const feeId = isNewRecord ? null : (currentFee.feeId || currentFee.id);
+
+            // Prepare payload
+            // Construct nested 'student' object to ensure JPA mapping works if backend expects a relation
+            const cleanStudentId = currentFee.studentId || (String(currentFee.id).startsWith('temp-') ? currentFee.id.replace('temp-', '') : currentFee.studentId);
+
+            const payload = {
+                // If update, include feeId in body just in case backend needs it
+                ...(isNewRecord ? {} : { feeId: feeId }),
+
+                // Flat field (if DTO uses it)
+                studentId: cleanStudentId,
+                studentName: currentFee.studentName,
+
+                // Nested object (if Entity uses it) - This fixes "data not stored" if relation is missing
+                student: { id: cleanStudentId },
+
+                monthlyFee: parseFloat(currentFee.monthlyFee || 0),
+                totalFee: parseFloat(currentFee.totalFee || 0),
+                amountPaid: parseFloat(currentFee.amountPaid || 0),
+                dueAmount: parseFloat(currentFee.dueAmount || 0),
+                status: currentFee.status,
+                lastPaymentDate: currentFee.lastPaymentDate || null
+            };
+
+            console.log("Submitting Fee Payload:", payload, "IsNew:", isNewRecord);
+
+            if (isNewRecord) {
+                const response = await campusService.createFee(payload);
+                console.log("Create Response:", response);
+
+                // CRITICAL FIX: Backend createFee ignores payment details (sets to 0/DUE).
+                // We must IMMEDIATELY call updateFee with the full payload to save the user's entered payment info.
+                if (response && (response.feeId || response.id)) {
+                    const newFeeId = response.feeId || response.id;
+                    console.log(`Forcing update on new record ${newFeeId} to save payment details...`);
+
+                    // Add the new ID to payload
+                    const updatePayload = { ...payload, feeId: newFeeId };
+                    const updateResponse = await campusService.updateFee(newFeeId, updatePayload);
+                    console.log("Force Update Response:", updateResponse);
+                }
+            } else {
+                // Try full update (PUT) as per controller
+                const response = await campusService.updateFee(feeId, payload);
+                console.log("Update Response:", response);
             }
+
+            // Removed invalid PATCH call as user confirmed controller does not have it.
+            // relies on PUT (updateFee) to work correctly with the fix in payload.
+
+            // Add slight delay to allow DB propagation
+            await new Promise(resolve => setTimeout(resolve, 500));
             loadFees();
             setShowModal(false);
             setCurrentFee(null);
         } catch (error) {
-            console.error("Failed to update fee record", error);
-            alert("Failed to update fee record");
+            console.error("Failed to save fee record", error);
+            alert("Failed to save fee record");
         }
     };
 
@@ -71,15 +170,15 @@ const FeeManagement = () => {
         { header: 'Monthly Fee', accessor: 'monthlyFee', render: (row) => <span className="fw-500">₹{row.monthlyFee}</span> },
         { header: 'Total Fee', accessor: 'totalFee', render: (row) => <span>₹{row.totalFee}</span> },
         { header: 'Amt Paid', accessor: 'amountPaid', render: (row) => <span className="text-success">₹{row.amountPaid}</span> },
-        { header: 'Due', accessor: 'monthlyDue', render: (row) => <span className="text-danger fw-600">₹{row.monthlyDue}</span> },
+        { header: 'Due', accessor: 'dueAmount', render: (row) => <span className="text-danger fw-600">₹{row.dueAmount}</span> },
         {
             header: 'Status',
             accessor: 'status',
             render: (row) => {
                 let badgeClass = 'bg-secondary bg-opacity-10 text-secondary';
-                if (row.status === 'Paid') badgeClass = 'bg-success bg-opacity-10 text-success';
-                else if (row.status === 'Due') badgeClass = 'bg-danger bg-opacity-10 text-danger';
-                else if (row.status === 'Partial') badgeClass = 'bg-warning bg-opacity-10 text-warning-emphasis';
+                if (row.status === 'PAID') badgeClass = 'bg-success bg-opacity-10 text-success';
+                else if (row.status === 'DUE') badgeClass = 'bg-danger bg-opacity-10 text-danger';
+                else if (row.status === 'PARTIALLY_PAID') badgeClass = 'bg-warning bg-opacity-10 text-warning-emphasis';
                 return <span className={`badge rounded-pill px-3 py-2 fw-bold ${badgeClass}`}>{row.status}</span>;
             }
         },
@@ -182,20 +281,20 @@ const FeeManagement = () => {
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Balance Due</label>
                                             <div className="input-group">
                                                 <span className="input-group-text glass-card border-end-0 rounded-start-pill">₹</span>
-                                                <input type="number" className="form-control border-start-0 ps-0 text-danger fw-bold" name="monthlyDue" value={currentFee.monthlyDue} onChange={handleInputChange} required />
+                                                <input type="number" className="form-control border-start-0 ps-0 text-danger fw-bold" name="dueAmount" value={currentFee.dueAmount} onChange={handleInputChange} required />
                                             </div>
                                         </div>
                                         <div className="col-md-6">
-                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Collection Date</label>
-                                            <input type="date" className="form-control" name="lastPaymentDate" value={currentFee.lastPaymentDate} onChange={handleInputChange} />
+                                            <label className="form-label fw-600 smaller text-uppercase text-muted">Last Payment Date</label>
+                                            <input type="date" className="form-control" name="lastPaymentDate" value={currentFee.lastPaymentDate || ''} onChange={handleInputChange} />
                                         </div>
                                         <div className="col-md-12">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Payment Status</label>
                                             <div className="d-flex gap-3">
-                                                {['Paid', 'Partial', 'Due'].map((status) => (
+                                                {['PAID', 'PARTIALLY_PAID', 'DUE'].map((status) => (
                                                     <label key={status} className={`flex-fill p-3 border rounded-3 cursor-pointer transition-all ${currentFee.status === status ? 'border-primary bg-primary bg-opacity-10 fw-bold text-primary' : 'bg-primary bg-opacity-5'}`} style={{ cursor: 'pointer' }}>
                                                         <input type="radio" value={status} name="status" checked={currentFee.status === status} onChange={handleInputChange} className="d-none" />
-                                                        <div className="text-center">{status}</div>
+                                                        <div className="text-center">{status.replace('_', ' ')}</div>
                                                     </label>
                                                 ))}
                                             </div>

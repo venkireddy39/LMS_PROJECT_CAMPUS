@@ -444,9 +444,9 @@ const StudentDetails = () => {
     };
 
     const filteredStudents = displayedStudents.filter(student =>
-        student.id?.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.studentName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        student.studentEmail?.toLowerCase().includes(searchTerm.toLowerCase())
+        (student.id?.toString()?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (student.studentName?.toLowerCase() || '').includes(searchTerm.toLowerCase()) ||
+        (student.studentEmail?.toLowerCase() || '').includes(searchTerm.toLowerCase())
     ) || [];
 
     const availableRooms = rooms.filter(r => {
