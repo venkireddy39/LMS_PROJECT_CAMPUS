@@ -12,79 +12,34 @@ const RoomManagement = () => {
         loadRooms();
     }, []);
 
-    const loadRooms = async () => {
-        try {
-            const data = await campusService.getAllRooms();
-            const roomsData = Array.isArray(data) ? data : (data.data || []);
-
-            // Map data to ensure occupied and vacant fields exist
-            const processedRooms = roomsData.map(room => {
-                const capacity = room.capacity || room.sharingType || 0;
-                // Check if backend provides occupied count, otherwise default to 0
-                // Use 'currentOccupancy' as potential fallback key
-                const occupied = room.occupied !== undefined ? room.occupied : (room.currentOccupancy || 0);
-                // Calculate vacant if not provided
-                const vacant = room.vacant !== undefined ? room.vacant : Math.max(0, capacity - occupied);
-
-                return {
-                    ...room,
-                    occupied,
-                    vacant,
-                    // Ensure status is display-ready if needed
-                    status: room.status || (occupied >= capacity ? 'Full' : 'Available')
-                };
-            });
-
-            setRooms(processedRooms);
-        } catch (error) {
-            console.error("Failed to load rooms", error);
-        }
-    };
-
-    // Synchronize room occupancy with context students
-    // Note: If backend handles occupancy, this might be redundant, but keeping for frontend sync if needed
-    const syncRoomsWithStudents = React.useCallback((currentRooms) => {
-        return currentRooms.map(room => {
-            // If backend already provides occupancy, we might trust it. 
-            // However, if we want real-time sync with local student context changes:
-            const occupiedCount = students.filter(s =>
-                s.roomNumber === room.roomNumber && s.stayStatus === 'Active'
-            ).length;
-
-            // If backend data is sufficient, we can skip this calculation
-            // For now, assuming backend 'occupied' might need client-side adjustment if student context is fresher
-            // But let's rely on backend data primarily if possible. 
-            // If the logic was purely frontend before, we should check if backend returns 'occupied' count.
-            // campusService.getAllRooms() should return similar structure.
-
-            return {
-                ...room,
-                // occupied: occupiedCount, // Commenting out override to trust backend first
-                // vacant: room.capacity - occupiedCount,
-                // status: occupiedCount >= room.capacity ? 'Full' : (occupiedCount === 0 ? 'Available' : 'Partially Filled')
-            };
-        });
-    }, [students]);
-
-    // Use backend data directly for now to ensure we test API integration
-    const displayRooms = rooms; // React.useMemo(() => syncRoomsWithStudents(rooms), [rooms, syncRoomsWithStudents]);
-
-
     const [filterStatus, setFilterStatus] = React.useState('All');
     const [filterSharing, setFilterSharing] = React.useState('All');
+    const [searchQuery, setSearchQuery] = React.useState(''); // Added Search State
     const [sortBy, setSortBy] = React.useState('roomNumber');
     const [sortOrder, setSortOrder] = React.useState('asc');
 
     // Filter and Sort Logic
     const filteredAndSortedRooms = React.useMemo(() => {
-        let result = [...displayRooms];
+        if (!rooms) return [];
+        let result = [...rooms];
 
-        // Apply Filters
+        // Apply Search (Room Number)
+        if (searchQuery) {
+            const query = searchQuery.toLowerCase();
+            result = result.filter(room =>
+                String(room.roomNumber).toLowerCase().includes(query)
+            );
+        }
+
+        // Apply Status Filter
         if (filterStatus !== 'All') {
             result = result.filter(room => room.status === filterStatus);
         }
+
+        // Apply Sharing Filter
         if (filterSharing !== 'All') {
-            result = result.filter(room => room.sharingType && room.sharingType.toString() === filterSharing);
+            // Compare normalized numeric sharing value
+            result = result.filter(room => room.normalizedSharing === parseInt(filterSharing));
         }
 
         // Apply Sorting
@@ -94,11 +49,16 @@ const RoomManagement = () => {
 
             // Handle numeric sorting for room number if possible
             if (sortBy === 'roomNumber') {
-                const numA = parseInt(valA);
-                const numB = parseInt(valB);
-                if (!isNaN(numA) && !isNaN(numB)) {
+                // Extract number part from room string (e.g. "101-A" -> 101)
+                const numA = parseInt(String(valA).match(/\d+/)?.[0] || 0);
+                const numB = parseInt(String(valB).match(/\d+/)?.[0] || 0);
+                if (numA !== numB) {
                     valA = numA;
                     valB = numB;
+                } else {
+                    // Check fallback string comparison for suffixes
+                    valA = valA.toString();
+                    valB = valB.toString();
                 }
             }
 
@@ -108,7 +68,65 @@ const RoomManagement = () => {
         });
 
         return result;
-    }, [displayRooms, filterStatus, filterSharing, sortBy, sortOrder]);
+    }, [rooms, filterStatus, filterSharing, sortBy, sortOrder, searchQuery]);
+
+    const loadRooms = async () => {
+        try {
+            const data = await campusService.getAllRooms();
+            const roomsData = Array.isArray(data) ? data : (data.data || []);
+
+            // Map data to ensure occupied and vacant fields exist and normalize for filtering
+            const processedRooms = roomsData.map(room => {
+                // Normalize Sharing Type -> Number
+                let sharingInt = 0;
+                const sType = String(room.sharingType || '').toUpperCase();
+                if (sType.includes('SINGLE') || sType === '1') sharingInt = 1;
+                else if (sType.includes('DOUBLE') || sType === '2') sharingInt = 2;
+                else if (sType.includes('TRIPLE') || sType === '3') sharingInt = 3;
+                else if (sType.includes('QUAD') || sType === '4') sharingInt = 4;
+                else sharingInt = parseInt(room.capacity) || 1;
+
+                const capacity = sharingInt;
+
+                // Check if backend provides occupied count
+                const occupied = room.occupied !== undefined ? parseInt(room.occupied) : (parseInt(room.currentOccupancy) || 0);
+                const vacant = capacity - occupied;
+
+                // Normalize Status
+                let normStatus = 'AVAILABLE';
+                if (occupied >= capacity) normStatus = 'FULL';
+                else if (occupied > 0) normStatus = 'PARTIALLY_FILLED';
+
+                // Allow backend override if it sends one of our standard keys
+                if (room.status) {
+                    const backendStatus = room.status.toUpperCase();
+                    if (['FULL', 'AVAILABLE', 'PARTIALLY_FILLED'].includes(backendStatus)) {
+                        normStatus = backendStatus;
+                    }
+                }
+
+                return {
+                    ...room,
+                    occupied,
+                    vacant,
+                    normalizedSharing: sharingInt, // Helper for filter
+                    sharingType: room.sharingType || (sharingInt === 1 ? 'SINGLE' : sharingInt === 2 ? 'DOUBLE' : sharingInt === 3 ? 'TRIPLE' : 'QUAD'), // Ensure display string
+                    status: normStatus
+                };
+            });
+
+            setRooms(processedRooms);
+        } catch (error) {
+            console.error("Failed to load rooms", error);
+        }
+    };
+
+    // ... (Sync logic removed/hidden as per previous view) ...
+
+    // ... (Modal Logic remains mostly same, just ensure we use standard status values) ...
+    // Note: Skipping modal logic changes in this block for brevity, focusing on Filter/Table props
+
+    // ...
 
     const [showModal, setShowModal] = React.useState(false);
     const [newRoom, setNewRoom] = React.useState({
@@ -188,14 +206,69 @@ const RoomManagement = () => {
         }
     };
 
+    // Update DataTable actions to include Search Input
+    const tableActions = (
+        <div className="d-flex gap-2 flex-wrap justify-content-end align-items-center">
+            {/* Search Input */}
+            <div className="position-relative">
+                <i className="bi bi-search position-absolute top-50 start-0 translate-middle-y ms-3 text-muted"></i>
+                <input
+                    type="text"
+                    className="form-control form-control-sm rounded-pill ps-5 shadow-sm border-0"
+                    placeholder="Search Room No..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    style={{ width: '180px' }}
+                />
+            </div>
+
+            <select
+                className="form-select form-select-sm rounded-pill px-3 shadow-sm"
+                style={{ width: '140px' }}
+                value={filterSharing}
+                onChange={(e) => setFilterSharing(e.target.value)}
+            >
+                <option value="All">All Sharing</option>
+                <option value="1">Single</option>
+                <option value="2">Double</option>
+                <option value="3">Triple</option>
+                <option value="4">Quad</option>
+            </select>
+            <select
+                className="form-select form-select-sm rounded-pill px-3 shadow-sm"
+                style={{ width: '140px' }}
+                value={filterStatus}
+                onChange={(e) => setFilterStatus(e.target.value)}
+            >
+                <option value="All">All Status</option>
+                <option value="AVAILABLE">Available</option>
+                <option value="FULL">Full</option>
+                <option value="PARTIALLY_FILLED">Partially Filled</option>
+            </select>
+            <select
+                className="form-select form-select-sm rounded-pill px-3 shadow-sm"
+                style={{ width: '140px' }}
+                value={sortBy}
+                onChange={(e) => setSortBy(e.target.value)}
+            >
+                <option value="roomNumber">Sort: Room No.</option>
+                <option value="sharingType">Sort: Sharing</option>
+                <option value="occupied">Sort: Occupied</option>
+                <option value="status">Sort: Status</option>
+            </select>
+            <button className="btn-premium btn-premium-primary" onClick={() => setShowModal(true)}>
+                <i className="bi bi-plus-lg"></i> Add Room
+            </button>
+        </div>
+    );
+
     const columns = [
         { header: 'Room No.', accessor: 'roomNumber' },
         {
             header: 'Sharing Type',
             accessor: 'sharingType',
-            render: (row) => <span className="fw-500">{row.sharingType} Sharing</span>
+            render: (row) => <span className="fw-500">{row.sharingType}</span>
         },
-        // Removed Capacity Column
         {
             header: 'Occupied',
             accessor: 'occupied',
@@ -205,17 +278,16 @@ const RoomManagement = () => {
                 </div>
             )
         },
-        // { header: 'Vacant', accessor: 'vacant' },
         {
             header: 'Status',
             accessor: 'status',
             render: (row) => {
                 let badgeClass = 'bg-secondary bg-opacity-10 text-secondary';
-                if (row.status === 'Full') badgeClass = 'bg-danger bg-opacity-10 text-danger';
-                else if (row.status === 'Available') badgeClass = 'bg-success bg-opacity-10 text-success';
-                else if (row.status === 'Partially Filled') badgeClass = 'bg-warning bg-opacity-10 text-warning-emphasis';
+                if (row.status === 'FULL') badgeClass = 'bg-danger bg-opacity-10 text-danger';
+                else if (row.status === 'AVAILABLE') badgeClass = 'bg-success bg-opacity-10 text-success';
+                else if (row.status === 'PARTIALLY_FILLED') badgeClass = 'bg-warning bg-opacity-10 text-warning-emphasis';
 
-                return <span className={`badge rounded-pill px-3 py-2 fw-bold ${badgeClass}`}>{row.status}</span>;
+                return <span className={`badge rounded-pill px-3 py-2 fw-bold ${badgeClass}`}>{row.status.replace('_', ' ')}</span>;
             }
         },
         {
@@ -246,48 +318,7 @@ const RoomManagement = () => {
                 title="Hostel Inventory"
                 columns={columns}
                 data={filteredAndSortedRooms}
-                actions={
-                    <div className="d-flex gap-2 flex-wrap justify-content-end">
-                        <select
-                            className="form-select form-select-sm rounded-pill px-3 shadow-sm"
-                            style={{ width: '140px' }}
-                            value={filterSharing}
-                            onChange={(e) => setFilterSharing(e.target.value)}
-                        >
-                            <option value="All">All Sharing</option>
-                            <option value="1">Single</option>
-                            <option value="2">Double</option>
-                            <option value="3">Triple</option>
-                            <option value="4">Quad</option>
-                        </select>
-                        <select
-                            className="form-select form-select-sm rounded-pill px-3 shadow-sm"
-                            style={{ width: '140px' }}
-                            value={filterStatus}
-                            onChange={(e) => setFilterStatus(e.target.value)}
-                        >
-                            <option value="All">All Status</option>
-                            <option value="Available">Available</option>
-                            <option value="Full">Full</option>
-                            <option value="Partially Filled">Partially Filled</option>
-                        </select>
-                        <select
-                            className="form-select form-select-sm rounded-pill px-3 shadow-sm"
-                            style={{ width: '140px' }}
-                            value={sortBy}
-                            onChange={(e) => setSortBy(e.target.value)}
-                        >
-                            <option value="roomNumber">Room No.</option>
-                            <option value="sharingType">Sharing</option>
-                            {/* Removed Capacity Sort Option */}
-                            <option value="occupied">Occupied</option>
-                            <option value="status">Status</option>
-                        </select>
-                        <button className="btn-premium btn-premium-primary" onClick={() => setShowModal(true)}>
-                            <i className="bi bi-plus-lg"></i> Add Room
-                        </button>
-                    </div>
-                }
+                actions={tableActions}
             />
 
             {/* Add Room Modal */}

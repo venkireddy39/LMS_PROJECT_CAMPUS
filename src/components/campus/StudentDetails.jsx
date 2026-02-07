@@ -252,7 +252,7 @@ const StudentDetails = () => {
             joinDate: student.joinDate || '',
             leaveDate: student.leaveDate || '',
             paymentStatus: student.paymentStatus || 'DUE',
-            status: student.status || 'ACTIVE'
+            status: (student.status === 'NEW_ENTRY' ? 'ACTIVE' : student.status) || 'ACTIVE'
         });
         setShowModal(true);
     };
@@ -460,9 +460,15 @@ const StudentDetails = () => {
 
     const columns = [
         { header: 'ID', accessor: 'id' },
-        { header: 'First Name', accessor: 'firstname' },
-        { header: 'Last Name', accessor: 'lastname' },
-        { header: 'Email', accessor: 'email' },
+        {
+            header: 'First Name',
+            accessor: (row) => row.firstname || row.firstName || (row.studentName ? row.studentName.split(' ')[0] : '-')
+        },
+        {
+            header: 'Last Name',
+            accessor: (row) => row.lastname || row.lastName || (row.studentName ? row.studentName.split(' ').slice(1).join(' ') : '-')
+        },
+        { header: 'Email', accessor: (row) => row.email || row.studentEmail || '-' },
         { header: 'Parent Name', accessor: (row) => row.fatherName || '-' },
         { header: 'Parent Number', accessor: (row) => row.fatherPhone || '-' },
         { header: 'Room Number', accessor: (row) => row.room?.roomNumber || row.roomNumber || '-' },

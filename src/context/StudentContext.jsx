@@ -50,7 +50,9 @@ export const StudentProvider = ({ children }) => {
 
                 // Fields from DB2 Snapshot
                 studentName: r.studentName || r.name || 'Unknown',
-                studentEmail: r.studentEmail || '',
+                firstname: r.firstName || r.firstname || '',
+                lastname: r.lastName || r.lastname || '',
+                studentEmail: r.studentEmail || r.email || '',
                 fatherName: r.fatherName || '',
                 fatherPhone: r.fatherPhone || '',
 
