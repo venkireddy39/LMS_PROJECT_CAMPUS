@@ -46,21 +46,9 @@ const FeeManagement = () => {
 
                 if (feeRecord) {
                     mergedData.push({ ...student, ...feeRecord, id: feeRecord.feeId });
-                } else {
-                    // Create placeholder for resident without fee record
-                    mergedData.push({
-                        id: `temp-${student.id}`,
-                        studentName: student.studentName,
-                        studentId: student.studentId || student.id,
-                        monthlyFee: 0,
-                        totalFee: 0,
-                        amountPaid: 0,
-                        dueAmount: 0,
-                        status: 'DUE',
-                        lastPaymentDate: '',
-                        isNew: true // Flag to trigger create instead of update
-                    });
                 }
+                // Removed placeholder generation for students without fees to match DB count
+
                 processedStudents.add(uniqueKey);
             });
 

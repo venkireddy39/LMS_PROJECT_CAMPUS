@@ -57,7 +57,18 @@ const request = async (endpoint, options = {}) => {
                 }
             }
             const errorText = await response.text();
-            throw new Error(errorText || `HTTP Error: ${response.status} from ${endpoint}`);
+            let finalErrorMessage = errorText || `HTTP Error: ${response.status} from ${endpoint}`;
+            try {
+                const errorJson = JSON.parse(errorText);
+                // Extract meaningful message from backend error object
+                // Prioritize 'message' (user friendly) over 'error' or 'trace'
+                if (errorJson.message) finalErrorMessage = errorJson.message;
+                else if (errorJson.error) finalErrorMessage = errorJson.error;
+                else if (errorJson.trace) finalErrorMessage = errorJson.trace; // Last resort for debug
+            } catch (e) {
+                // Ignore JSON parse error, use default text
+            }
+            throw new Error(finalErrorMessage);
         }
 
         const contentType = response.headers.get("content-type");

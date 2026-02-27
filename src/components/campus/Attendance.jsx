@@ -3,7 +3,6 @@ import StatsCard from '../common/StatsCard';
 import DataTable from '../common/DataTable';
 import campusService from '../../services/campusService';
 import { useStudentContext } from '../../context/StudentContext';
-import { MdCommentBank } from "react-icons/md";
 
 const Attendance = () => {
     const { getActiveStudents, selectedStudentFilter } = useStudentContext();
@@ -104,8 +103,8 @@ const Attendance = () => {
             ]);
 
             // console.log("Raw Attendance Data:", attendanceRes);
-            const allRooms = Array.isArray(roomsRes) ? roomsRes : (roomsRes.data || []);
-            const allAllocations = Array.isArray(allocationsRes) ? allocationsRes : (allocationsRes.data || []);
+            const allRooms = Array.isArray(roomsRes) ? roomsRes : (roomsRes.data || roomsRes.content || []);
+            const allAllocations = Array.isArray(allocationsRes) ? allocationsRes : (allocationsRes.data || allocationsRes.content || []);
 
             let attendanceData = [];
             if (Array.isArray(attendanceRes)) {
@@ -180,10 +179,22 @@ const Attendance = () => {
                 );
                 const resolvedHostelName = item.hostelName || matchedRoom?.hostel?.name || matchedRoom?.hostelName || matchedRoom?.hostel?.hostelName || 'Unknown';
 
+                // RECOVER MISSING ROOM ID
+                const finalRoomId = roomId || matchedRoom?.id || matchedRoom?.roomId;
+
+                // RECOVER MISSING RECORD ID (If backend uses attendanceId or _id)
+                const recordId = item.id || item.attendanceId || item._id;
+                if (!recordId && !item.isDraft) {
+                    console.warn("Attendance record missing ID:", item);
+                }
+
                 return {
                     ...item,
+                    id: recordId, // Ensure ID is normalized
                     studentName: item.studentName || 'Unknown', // Ensure name
                     roomNo: roomNumber,
+                    roomId: finalRoomId, // Ensure ID is present
+                    room: item.room || (matchedRoom ? { id: finalRoomId, roomNumber: roomNumber } : null), // Ensure room object
                     hostelName: resolvedHostelName,
                     status: item.status ? item.status.toUpperCase() : 'PRESENT',
                     isDraft: item.isDraft
@@ -250,33 +261,70 @@ const Attendance = () => {
         performUpdate(newStatus);
     };
 
-    // Modified to accept status explicitly
-    const setStatus = (record, status) => {
-        // Just reuse logic
-        const performUpdate = async () => {
-            try {
-                if (record.isDraft) {
-                    const attendancePayload = {
-                        studentId: record.studentId,
-                        student: { id: record.studentId },
-                        studentName: record.studentName,
-                        roomId: record.roomId || record.room?.id,
-                        room: record.room,
-                        roomNumber: record.roomNo,
-                        attendanceDate: date,
-                        status: status
-                    };
-                    await campusService.markAttendance(attendancePayload);
-                } else {
-                    const updatedRecord = { ...record, status: status };
-                    await campusService.updateAttendance(record.id, updatedRecord);
-                }
-                loadAttendance();
-                if (status === 'ABSENT') sendParentNotification(record);
-            } catch (e) { console.error(e); alert("Action failed"); }
+    // Modified to accept status explicitly with Optimistic UI Update
+    const setStatus = async (record, status) => {
+        // Validation: Ensure Room ID exists before calling Backend
+        if (!record.roomId && !record.room?.id) {
+            alert(`Cannot mark attendance for ${record.studentName}. Room details are incomplete (Missing Room ID). Please verify the room assignment.`);
+            return;
         }
-        performUpdate();
-    }
+
+        // Validation: Ensure Record ID exists for Updates (Non-Drafts)
+        if (!record.isDraft && !record.id) {
+            console.error("Critical: Attempting to update a record without an ID", record);
+            alert("Error: This attendance record is missing its system ID. Please refresh the page and try again.");
+            return;
+        }
+
+        const originalStatus = record.status;
+
+        // Optimistic Update: Update UI immediately
+        const optimisticData = data.map(item => {
+            if (item.studentId === record.studentId) { // Match by studentId as ID might be temp
+                return { ...item, status: status, id: item.id || `temp-${item.studentId}` }; // Ensure ID
+            }
+            return item;
+        });
+        setData(optimisticData);
+
+        try {
+            if (record.isDraft) {
+                const attendancePayload = {
+                    studentId: record.studentId,
+                    student: { id: record.studentId },
+                    studentName: record.studentName,
+                    roomId: record.roomId || record.room?.id,
+                    room: record.room || (record.roomId ? { id: record.roomId, roomNumber: record.roomNo } : null),
+                    roomNumber: record.roomNo,
+                    attendanceDate: date,
+                    status: status
+                };
+                const res = await campusService.markAttendance(attendancePayload);
+                // Update the record with the real ID from response if available
+                if (res && (res.id || res.attendanceId)) {
+                    const realId = res.id || res.attendanceId;
+                    setData(prevData => prevData.map(item =>
+                        item.studentId === record.studentId ? { ...item, id: realId, isDraft: false } : item
+                    ));
+                }
+            } else {
+                const updatedRecord = { ...record, status: status };
+                await campusService.updateAttendance(record.id, updatedRecord);
+            }
+
+            // Background refresh to ensure consistency
+            // loadAttendance(); 
+
+            if (status === 'ABSENT') sendParentNotification(record);
+
+        } catch (e) {
+            console.error("Failed to update status", e);
+            // Revert Optimistic Update
+            setData(data); // Restore original data
+            const msg = e.response?.data?.message || e.message || "Action failed";
+            alert(`Failed: ${msg}`);
+        }
+    };
 
     // Simulate Sending Notification
     const sendParentNotification = (record) => {
@@ -393,29 +441,6 @@ const Attendance = () => {
                         roomNumber: alloc.roomNumber || alloc.room?.roomNumber || '-'
                     });
                     processedStudents.add(uniqueKey);
-                });
-
-                // 2. Add students from Fees list who might be missing in active allocations
-                // (User specifically asked for Fee list source)
-                feesList.forEach(fee => {
-                    // Try to identify student
-                    const studentId = fee.studentId || fee.student?.id;
-                    const studentName = fee.studentName || fee.student?.name;
-
-                    if (!studentId && !studentName) return;
-
-                    const uniqueKey = (studentId || studentName).toString();
-
-                    if (!processedStudents.has(uniqueKey)) {
-                        residents.push({
-                            studentName: studentName || 'Unknown',
-                            studentId: studentId,
-                            roomNumber: '-', // Room unknown if only in Fee
-                            roomId: null,
-                            status: 'ACTIVE'
-                        });
-                        processedStudents.add(uniqueKey);
-                    }
                 });
 
             } catch (err) {
@@ -547,38 +572,42 @@ const Attendance = () => {
         {
             header: 'Attendance Status',
             accessor: 'status',
-            render: (row) => (
+            render: (row) => {
+                if (row.status === 'NOT_MARKED') {
+                    return (
+                        <div className="btn-group rounded-pill overflow-hidden border shadow-sm">
+                            <button
+                                className="btn btn-sm px-3 py-1 border-0 fw-bold btn-light text-muted hover-bg-success hover-text-white transition-all"
+                                onClick={() => setStatus(row, 'PRESENT')}
+                                title="Mark Present"
+                            >
+                                <i className="bi bi-check-circle me-1"></i> Present
+                            </button>
+                            <button
+                                className="btn btn-sm px-3 py-1 border-0 fw-bold btn-light text-muted border-start hover-bg-danger hover-text-white transition-all"
+                                onClick={() => setStatus(row, 'ABSENT')}
+                                title="Mark Absent"
+                            >
+                                <i className="bi bi-x-circle me-1"></i> Absent
+                            </button>
+                        </div>
+                    );
+                }
 
-                <div className="btn-group rounded-pill overflow-hidden border shadow-sm" style={{ maxWidth: 'fit-content' }} >
-                    {
-                        row.status === 'NOT_MARKED' ? (
-                            <>
-                                <button className="btn btn-sm px-3 py-1 border-0 fw-bold btn-light text-muted" onClick={() => setStatus(row, 'PRESENT')}>
-                                    <i className="bi bi-check-circle me-1"></i> Mark Present
-                                </button>
-                                <button className="btn btn-sm px-3 py-1 border-0 fw-bold btn-light text-muted border-start" onClick={() => setStatus(row, 'ABSENT')}>
-                                    <i className="bi bi-x-circle me-1"></i> Mark Absent
-                                </button>
-                            </>
-                        ) : (
-                            <>
-                                <button
-                                    className={`btn btn-sm px-3 py-1 border-0 fw-bold transition-all ${row.status === 'PRESENT' ? 'btn-success' : 'btn-light text-muted'}`}
-                                    onClick={() => setStatus(row, 'PRESENT')}
-                                >
-                                    <i className={`bi ${row.status === 'PRESENT' ? 'bi-check-circle-fill' : 'bi-check-circle'} me-1`}></i> Present
-                                </button>
-                                <button
-                                    className={`btn btn-sm px-3 py-1 border-0 fw-bold transition-all ${row.status === 'ABSENT' ? 'btn-danger' : 'btn-light text-muted'}`}
-                                    onClick={() => setStatus(row, 'ABSENT')}
-                                >
-                                    <i className={`bi ${row.status === 'ABSENT' ? 'bi-x-circle-fill' : 'bi-x-circle'} me-1`}></i> Absent
-                                </button>
-                            </>
-                        )
-                    }
-                </div >
-            )
+                // Toggle Button for Marked Status (Single button that toggles state)
+                const isPresent = row.status === 'PRESENT';
+                return (
+                    <button
+                        className={`btn btn-sm px-4 py-1 border-0 fw-bold rounded-pill transition-all shadow-sm d-flex align-items-center gap-2 ${isPresent ? 'btn-success' : 'btn-danger'}`}
+                        onClick={() => setStatus(row, isPresent ? 'ABSENT' : 'PRESENT')}
+                        style={{ minWidth: '120px', justifyContent: 'center' }}
+                        title={`Click to mark as ${isPresent ? 'Absent' : 'Present'}`}
+                    >
+                        <i className={`bi ${isPresent ? 'bi-check-circle-fill' : 'bi-x-circle-fill'}`}></i>
+                        {isPresent ? 'Present' : 'Absent'}
+                    </button>
+                );
+            }
 
         },
         {
@@ -612,16 +641,34 @@ const Attendance = () => {
         {
             header: 'Remarks',
             accessor: 'remarks',
-            render: (row) => (
-                <div className="d-flex align-items-center gap-2">
-                    <span className="text-truncate d-inline-block small text-muted" style={{ maxWidth: '150px' }}>
-                        {row.remarks || <><MdCommentBank className="me-1" /> No remarks added</>}
-                    </span>
-                    <button className="btn btn-sm btn-light border rounded-circle shadow-sm" onClick={() => handleAddRemark(row)} title="Edit Remarks">
-                        <i className="bi bi-chat-left-text"></i>
-                    </button>
-                </div>
-            )
+            render: (row) => {
+                const hasRemark = row.remarks && row.remarks.trim().length > 0;
+                return (
+                    <div className="">
+                        {hasRemark ? (
+                            <button
+                                className="btn btn-sm btn-warning bg-opacity-25 text-warning-emphasis border border-warning border-opacity-50 rounded-pill px-3 py-1 d-flex align-items-center gap-2 shadow-sm"
+                                onClick={() => handleAddRemark(row)}
+                                title={row.remarks}
+                                style={{ transition: 'all 0.2s' }}
+                            >
+                                <i className="bi bi-chat-quote-fill"></i>
+                                <span className="d-inline-block text-truncate fw-500" style={{ maxWidth: '120px', fontSize: '0.85rem' }}>
+                                    {row.remarks}
+                                </span>
+                            </button>
+                        ) : (
+                            <button
+                                className="btn btn-sm btn-white text-muted border rounded-pill px-3 py-1 shadow-sm opacity-75 hover-opacity-100"
+                                onClick={() => handleAddRemark(row)}
+                                style={{ transition: 'all 0.2s', fontSize: '0.85rem' }}
+                            >
+                                <i className="bi bi-plus-lg me-1"></i> Add Note
+                            </button>
+                        )}
+                    </div>
+                );
+            }
         }
     ];
 
@@ -754,11 +801,12 @@ const Attendance = () => {
                                         <div className="mb-4">
                                             <label className="form-label fw-600 smaller text-uppercase text-muted">Notes / Explanation</label>
                                             <textarea
-                                                className="form-control"
+                                                className="form-control border-0 bg-light bg-opacity-50 p-3 shadow-none focus-ring"
                                                 rows="4"
                                                 value={remarkText}
                                                 onChange={(e) => setRemarkText(e.target.value)}
-                                                placeholder="Enter reason for absence or other relevant notes..."
+                                                placeholder="Enter reason for absence, late arrival, or other relevant daily notes..."
+                                                style={{ resize: 'none', borderRadius: '12px' }}
                                                 autoFocus
                                             ></textarea>
                                         </div>

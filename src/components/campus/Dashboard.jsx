@@ -230,7 +230,7 @@ const Dashboard = () => {
                                 <i className="bi bi-download me-1"></i> Export
                             </button>
                         </div>
-                        <div style={{ width: '100%', height: 350 }}>
+                        <div style={{ width: '100%', height: 350, minHeight: 350 }}>
                             <ResponsiveContainer width="100%" height="100%">
                                 <BarChart data={sharingData}>
                                     <defs>
@@ -273,7 +273,7 @@ const Dashboard = () => {
                         <p className="text-muted smaller mb-4">Current bed availability status</p>
 
                         <div className="flex-grow-1 position-relative d-flex align-items-center justify-content-center">
-                            <div style={{ width: '100%', height: 300 }}>
+                            <div style={{ width: '100%', height: 300, minHeight: 300 }}>
                                 <ResponsiveContainer width="100%" height="100%">
                                     <PieChart>
                                         <Pie
