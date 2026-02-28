@@ -18,6 +18,7 @@ const request = async (endpoint, options = {}) => {
     }
     const defaultHeaders = {
         'Content-Type': 'application/json',
+        'Accept': 'application/json',
         'Cache-Control': 'no-cache',
         'Pragma': 'no-cache',
         'Expires': '0',
@@ -72,10 +73,20 @@ const request = async (endpoint, options = {}) => {
         }
 
         const contentType = response.headers.get("content-type");
+        const text = await response.text();
+
         if (contentType && contentType.includes("application/json")) {
-            return await response.json();
+            try {
+                return JSON.parse(text);
+            } catch (jsonError) {
+                // If it's a JWT (starts with eyJ), returning it as text is expected by the auth context
+                if (text.startsWith('eyJ')) {
+                    return text;
+                }
+                throw new Error(`Invalid JSON response: ${text.substring(0, 50)}...`);
+            }
         }
-        return await response.text();
+        return text;
     } catch (error) {
         console.error(`API Call Error [${endpoint}]:`, error);
         throw error;

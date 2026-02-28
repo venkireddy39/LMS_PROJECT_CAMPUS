@@ -46,8 +46,21 @@ const FeeManagement = () => {
 
                 if (feeRecord) {
                     mergedData.push({ ...student, ...feeRecord, id: feeRecord.feeId });
+                } else {
+                    // Force generate a record so they can be edited/added
+                    mergedData.push({
+                        ...student,
+                        studentName: student.studentName || student.name,
+                        monthlyFee: 0,
+                        totalFee: 0,
+                        amountPaid: 0,
+                        dueAmount: 0,
+                        status: 'DUE',
+                        // Use studentId if available, else fallback to id
+                        id: `temp-${student.studentId || student.id || uniqueKey}`,
+                        isNew: true
+                    });
                 }
-                // Removed placeholder generation for students without fees to match DB count
 
                 processedStudents.add(uniqueKey);
             });
@@ -202,8 +215,23 @@ const FeeManagement = () => {
                             if (record) {
                                 handleEditClick(record);
                             } else {
-                                // Optional: Handle case where student exists but no fee record yet
-                                alert("No fee record found for this student.");
+                                // Fallback: find in context if not yet in state (unlikely if loadFees ran)
+                                const student = getActiveStudents().find(s => (s.name || s.studentName) === selectedName);
+                                if (student) {
+                                    handleEditClick({
+                                        ...student,
+                                        studentName: selectedName,
+                                        isNew: true,
+                                        monthlyFee: 0,
+                                        totalFee: 0,
+                                        amountPaid: 0,
+                                        dueAmount: 0,
+                                        status: 'DUE',
+                                        id: `temp-${student.studentId || student.id}`
+                                    });
+                                } else {
+                                    alert("Could not find resident details for this student.");
+                                }
                             }
 
                             // Reset value so the change event fires again if needed

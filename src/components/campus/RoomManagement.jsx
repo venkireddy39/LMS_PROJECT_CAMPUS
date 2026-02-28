@@ -221,6 +221,30 @@ const RoomManagement = () => {
         }
     };
 
+    const handleDelete = async () => {
+        if (!editId) return;
+        if (window.confirm("Are you sure you want to delete this room? This action cannot be undone.")) {
+            try {
+                await campusService.deleteRoom(editId);
+                await loadRooms();
+                setShowModal(false);
+                resetForm();
+            } catch (error) {
+                console.error("Failed to delete room", error);
+                alert("Failed to delete room: " + (error.message || "Unknown error"));
+            }
+        }
+    };
+
+    const handleDiscard = () => {
+        if (isEditing) {
+            handleDelete();
+        } else {
+            setShowModal(false);
+            resetForm();
+        }
+    };
+
     // Table actions
     const tableActions = (
         <div className="d-flex gap-2 flex-wrap justify-content-end align-items-center">
@@ -447,13 +471,10 @@ const RoomManagement = () => {
                                     <div className="mt-5 d-flex gap-2 justify-content-end">
                                         <button
                                             type="button"
-                                            className="btn btn-light px-4 rounded-pill fw-500"
-                                            onClick={() => {
-                                                setShowModal(false);
-                                                resetForm();
-                                            }}
+                                            className={`btn ${isEditing ? 'btn-outline-danger' : 'btn-light'} px-4 rounded-pill fw-500`}
+                                            onClick={handleDiscard}
                                         >
-                                            Discard
+                                            {isEditing ? 'Discard (Delete Room)' : 'Discard'}
                                         </button>
                                         <button type="submit" className="btn-premium btn-premium-primary rounded-pill px-5">
                                             {isEditing ? 'Update Room' : 'Register Room'}
