@@ -67,7 +67,7 @@ const ParentVisits = () => {
                 // I will try to update using the hypothetical support or just log new if ID is missing.
                 // Actually, let's use campusService.updateVisit if avail, or create.
                 if (campusService.updateVisit) {
-                    await campusService.updateVisit(editingVisit.id, payload);
+                    await campusService.updateVisit(editingVisit.visitId, payload);
                 } else {
                     await campusService.createVisit(payload);
                 }
@@ -162,7 +162,7 @@ const ParentVisits = () => {
                 {deleteMode && (
                     <button
                         className="btn btn-sm btn-white border"
-                        onClick={() => handleDelete(row.id, row.studentName)}
+                        onClick={() => handleDelete(row.visitId, row.studentName)}
                         title="Delete Visit"
                     >
                         <MdOutlineDelete size={20} className="text-danger" />

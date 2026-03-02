@@ -98,13 +98,27 @@ export const StudentProvider = ({ children }) => {
         }
     };
 
-    const deleteStudent = async (id) => {
+    const deleteStudent = async (id, hard = false) => {
         try {
-            await campusService.deleteAllocation(id);
+            if (hard) {
+                await campusService.hardDeleteAllocation(id);
+            } else {
+                await campusService.deleteAllocation(id);
+            }
             loadStudents();
         } catch (error) {
             console.error("Failed to delete student allocation", error);
             alert("Failed to delete student allocation.");
+        }
+    };
+
+    const updateStudentStatus = async (id, status) => {
+        try {
+            await campusService.updateAllocationStatus(id, status);
+            loadStudents();
+        } catch (error) {
+            console.error("Failed to update student status", error);
+            alert("Failed to update student status.");
         }
     };
 
@@ -123,6 +137,8 @@ export const StudentProvider = ({ children }) => {
             addStudent,
             updateStudent,
             deleteStudent,
+            updateStudentStatus,
+            hardDeleteStudent: (id) => deleteStudent(id, true),
             getActiveStudents,
             refreshStudents: loadStudents,
             selectedStudentFilter,

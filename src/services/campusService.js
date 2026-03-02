@@ -269,6 +269,8 @@ export const campusService = {
 
     deleteAllocation: (id) => request(`/allocations/${id}`, { method: 'DELETE' }),
 
+    hardDeleteAllocation: (id) => request(`/allocations/${id}/hard`, { method: 'DELETE' }),
+
     // ================= HOSTEL FEES =================
 
     createFee: (feeData) => request('/fees', {

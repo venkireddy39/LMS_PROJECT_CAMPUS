@@ -6,7 +6,7 @@ import { MdOutlineDelete } from "react-icons/md";
 import campusService from '../../services/campusService';
 
 const StudentDetails = () => {
-    const { students, addStudent, updateStudent, deleteStudent, setSelectedStudentFilter } = useStudentContext();
+    const { students, addStudent, updateStudent, deleteStudent, hardDeleteStudent, updateStudentStatus, setSelectedStudentFilter } = useStudentContext();
     const [showModal, setShowModal] = React.useState(false);
     // const [deleteMode, setDeleteMode] = React.useState(false);
     const [editingStudent, setEditingStudent] = React.useState(null);
@@ -235,8 +235,13 @@ const StudentDetails = () => {
         });
     };
 
-    const handleStatusChange = (id, newStatus) => {
-        updateStudent(id, { status: newStatus });
+    const handleStatusChange = async (id, newStatus) => {
+        // Optimistic UI update for status
+        setDisplayedStudents(prev => prev.map(s =>
+            s.id === id ? { ...s, status: newStatus } : s
+        ));
+
+        await updateStudentStatus(id, newStatus);
     };
 
     const handleEdit = (student) => {
@@ -257,17 +262,29 @@ const StudentDetails = () => {
         setShowModal(true);
     };
 
-    const handleDelete = (id, studentName) => {
-        if (window.confirm(`Are you sure you want to delete ${studentName}?`)) {
-            // Check if this student is a stored resident (exists in global 'students' context)
-            const isResident = students.some(s => s.id === id);
+    const handleDelete = async (id, studentName) => {
+        const choice = window.confirm(
+            `DELETION ACTION for ${studentName}:\n\n` +
+            `Click OK to DELETE PERMANENTLY from the database.\n` +
+            `Click Cancel to SOFT DELETE (marks as Cancelled but keeps record).`
+        );
+
+        const isResident = students.some(s => s.id === id);
+
+        if (choice) {
+            // User clicked OK -> Hard Delete
+            // Optimistically remove from view immediately
+            setDisplayedStudents(prev => prev.filter(s => s.id !== id));
 
             if (isResident) {
-                // It's a real allocation: delete from backend
-                deleteStudent(id);
-            } else {
-                // It's a transient view (unsaved): just remove from the list
+                await hardDeleteStudent(id);
+            }
+        } else {
+            // User clicked Cancel -> Soft Delete (Only for Residents)
+            if (isResident) {
+                // To make it "disappear quickly" as per user request, we remove from view even on soft delete
                 setDisplayedStudents(prev => prev.filter(s => s.id !== id));
+                await deleteStudent(id); // Soft delete
             }
         }
     };
