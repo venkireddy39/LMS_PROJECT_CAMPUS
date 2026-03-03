@@ -85,7 +85,8 @@ const Complaints = () => {
             if (isNewIssue) {
                 await campusService.createComplaint(currentIssue);
             } else {
-                await campusService.updateComplaint(currentIssue.id, currentIssue.status, currentIssue.remarks);
+                const id = currentIssue.complaintId || currentIssue.id;
+                await campusService.updateComplaint(id, currentIssue.status, currentIssue.remarks);
             }
             loadComplaints();
             setShowModal(false);
@@ -94,6 +95,18 @@ const Complaints = () => {
         } catch (error) {
             console.error("Failed to save complaint", error);
             alert("Failed to save complaint");
+        }
+    };
+
+    const handleDeleteClick = async (id) => {
+        if (window.confirm("Are you sure you want to permanently delete this complaint ticket?")) {
+            try {
+                await campusService.deleteComplaint(id);
+                loadComplaints();
+            } catch (error) {
+                console.error("Failed to delete complaint", error);
+                alert("Failed to delete complaint: " + (error.message || "Unknown error"));
+            }
         }
     };
 
@@ -133,9 +146,22 @@ const Complaints = () => {
             header: 'Actions',
             accessor: 'actions',
             render: (row) => (
-                <button className="btn btn-sm btn-light border rounded-pill px-3 fw-500 shadow-sm" onClick={() => handleEditClick(row)}>
-                    <i className="bi bi-pencil-square me-1"></i> Edit
-                </button>
+                <div className="d-flex gap-2">
+                    <button
+                        className="btn btn-sm btn-light border rounded-pill px-3 fw-500 shadow-sm"
+                        onClick={() => handleEditClick(row)}
+                        title="Edit Ticket"
+                    >
+                        <i className="bi bi-pencil-square me-1"></i> Edit
+                    </button>
+                    <button
+                        className="btn btn-sm btn-light border rounded-pill px-3 fw-500 shadow-sm text-danger"
+                        onClick={() => handleDeleteClick(row.complaintId || row.id)}
+                        title="Delete Ticket"
+                    >
+                        <i className="bi bi-trash me-1"></i> Delete
+                    </button>
+                </div>
             )
         }
     ];

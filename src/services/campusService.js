@@ -76,14 +76,13 @@ const request = async (endpoint, options = {}) => {
         const text = await response.text();
 
         if (contentType && contentType.includes("application/json")) {
+            if (!text) return {};
             try {
                 return JSON.parse(text);
             } catch (jsonError) {
+                console.warn(`[Request] Failed to parse JSON response from ${endpoint}, returning raw text instead.`, jsonError);
                 // If it's a JWT (starts with eyJ), returning it as text is expected by the auth context
-                if (text.startsWith('eyJ')) {
-                    return text;
-                }
-                throw new Error(`Invalid JSON response: ${text.substring(0, 50)}...`);
+                return text;
             }
         }
         return text;

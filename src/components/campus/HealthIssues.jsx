@@ -127,13 +127,14 @@ const HealthIssues = () => {
 
             if (isNewRecord) {
                 // Ensure ID is not sent for new creation if backend generates it
-                const { id, ...recordData } = payload;
+                const { id, incidentId, ...recordData } = payload;
                 await campusService.createIncident(recordData);
             } else {
+                const recordId = currentRecord.incidentId || currentRecord.id;
                 // Standard details update
-                await campusService.updateIncidentFull(currentRecord.id, payload);
+                await campusService.updateIncidentFull(recordId, payload);
                 // FORCE status update via specialized PATCH endpoint (fixes persistence issue)
-                await campusService.updateIncident(currentRecord.id, currentRecord.status, currentRecord.remarks);
+                await campusService.updateIncident(recordId, currentRecord.status, currentRecord.remarks);
             }
             // Small delay to ensure backend commit
             await new Promise(resolve => setTimeout(resolve, 500));
@@ -143,6 +144,18 @@ const HealthIssues = () => {
         } catch (error) {
             console.error("Failed to save record", error);
             alert("Failed to save record");
+        }
+    };
+
+    const handleDelete = async (id) => {
+        if (window.confirm("Are you sure you want to delete this medical record?")) {
+            try {
+                await campusService.deleteIncident(id);
+                loadRecords();
+            } catch (error) {
+                console.error("Failed to delete health record", error);
+                alert("Failed to delete health record: " + (error.message || "Unknown error"));
+            }
         }
     };
 
@@ -198,9 +211,22 @@ const HealthIssues = () => {
             header: 'Actions',
             accessor: 'actions',
             render: (row) => (
-                <button className="btn btn-sm btn-light border rounded-pill px-3 fw-500 shadow-sm transition-all" onClick={() => handleEditClick(row)}>
-                    <i className="bi bi-pencil-square me-1"></i> Edit
-                </button>
+                <div className="d-flex gap-2">
+                    <button
+                        className="btn btn-sm btn-light border rounded-pill px-3 fw-500 shadow-sm transition-all"
+                        onClick={() => handleEditClick(row)}
+                        title="Edit Record"
+                    >
+                        <i className="bi bi-pencil-square me-1"></i> Edit
+                    </button>
+                    <button
+                        className="btn btn-sm btn-light border rounded-pill px-3 fw-500 shadow-sm transition-all text-danger"
+                        onClick={() => handleDelete(row.id || row.incidentId)}
+                        title="Delete Record"
+                    >
+                        <i className="bi bi-trash me-1"></i> Delete
+                    </button>
+                </div>
             )
         }
     ];

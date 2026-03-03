@@ -2,15 +2,26 @@ import React, { useEffect } from 'react';
 import DataTable from '../common/DataTable';
 import campusService from '../../services/campusService';
 import { useStudentContext } from '../../context/StudentContext';
-import { FaEdit } from 'react-icons/fa';
+import { FaEdit, FaTrash } from 'react-icons/fa';
 
 const RoomManagement = () => {
     const { students } = useStudentContext(); // not used currently, but keeping
     const [rooms, setRooms] = React.useState([]);
+    const [hostels, setHostels] = React.useState([]);
 
     useEffect(() => {
         loadRooms();
+        loadHostels();
     }, []);
+
+    const loadHostels = async () => {
+        try {
+            const data = await campusService.getAllHostels();
+            setHostels(data || []);
+        } catch (error) {
+            console.error("Failed to load hostels", error);
+        }
+    };
 
     const [filterStatus, setFilterStatus] = React.useState('All');
     const [filterSharing, setFilterSharing] = React.useState('All');
@@ -132,6 +143,7 @@ const RoomManagement = () => {
     const [showModal, setShowModal] = React.useState(false);
     const [newRoom, setNewRoom] = React.useState({
         roomNumber: '',
+        hostelName: '',
         sharingType: '',
         occupied: 0,
         status: 'AVAILABLE'
@@ -141,7 +153,7 @@ const RoomManagement = () => {
     const [editId, setEditId] = React.useState(null);
 
     const resetForm = () => {
-        setNewRoom({ roomNumber: '', sharingType: '', occupied: 0, status: 'AVAILABLE' });
+        setNewRoom({ roomNumber: '', hostelName: '', sharingType: '', occupied: 0, status: 'AVAILABLE' });
         setIsEditing(false);
         setEditId(null);
     };
@@ -155,6 +167,7 @@ const RoomManagement = () => {
 
         setNewRoom({
             roomNumber: room.roomNumber,
+            hostelName: room.hostelName || '',
             sharingType: String(sharingTypeVal),
             occupied: room.occupied ?? 0,
             status: room.status || 'AVAILABLE'
@@ -190,6 +203,7 @@ const RoomManagement = () => {
         // ✅ IMPORTANT FIX: send currentlyOccupied
         const roomData = {
             roomNumber: newRoom.roomNumber,
+            hostelName: newRoom.hostelName,
             sharingType,
             capacity,
 
@@ -221,11 +235,11 @@ const RoomManagement = () => {
         }
     };
 
-    const handleDelete = async () => {
-        if (!editId) return;
+    const handleDelete = async (id) => {
+        if (!id) return;
         if (window.confirm("Are you sure you want to delete this room? This action cannot be undone.")) {
             try {
-                await campusService.deleteRoom(editId);
+                await campusService.deleteRoom(id);
                 await loadRooms();
                 setShowModal(false);
                 resetForm();
@@ -238,7 +252,7 @@ const RoomManagement = () => {
 
     const handleDiscard = () => {
         if (isEditing) {
-            handleDelete();
+            handleDelete(editId);
         } else {
             setShowModal(false);
             resetForm();
@@ -311,6 +325,7 @@ const RoomManagement = () => {
     );
 
     const columns = [
+        { header: 'Hostel Name', accessor: 'hostelName', render: (row) => <span className="fw-600 text-main">{row.hostelName || 'N/A'}</span> },
         { header: 'Room No.', accessor: 'roomNumber' },
         {
             header: 'Sharing Type',
@@ -353,13 +368,22 @@ const RoomManagement = () => {
             header: 'Actions',
             accessor: 'actions',
             render: (row) => (
-                <button
-                    className="btn btn-sm btn-warning"
-                    onClick={() => handleEdit(row)}
-                    title="Edit Room"
-                >
-                    <FaEdit />
-                </button>
+                <div className="d-flex gap-2">
+                    <button
+                        className="btn btn-sm btn-light border rounded-pill px-3 shadow-sm text-warning-emphasis fw-500"
+                        onClick={() => handleEdit(row)}
+                        title="Edit Room"
+                    >
+                        <FaEdit className="me-1" /> Edit
+                    </button>
+                    <button
+                        className="btn btn-sm btn-light border rounded-pill px-3 shadow-sm text-danger fw-500"
+                        onClick={() => handleDelete(row.roomId || row.id)}
+                        title="Delete Room"
+                    >
+                        <FaTrash className="me-1" /> Delete
+                    </button>
+                </div>
             )
         },
     ];
@@ -409,6 +433,24 @@ const RoomManagement = () => {
 
                             <div className="p-4">
                                 <form onSubmit={handleAddRoomSubmit}>
+                                    <div className="mb-4">
+                                        <label className="form-label fw-600 smaller text-uppercase text-muted">Select Hostel</label>
+                                        <select
+                                            className="form-select"
+                                            name="hostelName"
+                                            value={newRoom.hostelName}
+                                            onChange={handleAddRoomChange}
+                                            required
+                                        >
+                                            <option value="">Choose Hostel...</option>
+                                            {hostels.map((h, idx) => (
+                                                <option key={h.hostelId || idx} value={h.hostelName}>
+                                                    {h.hostelName}
+                                                </option>
+                                            ))}
+                                        </select>
+                                    </div>
+
                                     <div className="mb-4">
                                         <label className="form-label fw-600 smaller text-uppercase text-muted">Room Number</label>
                                         <input

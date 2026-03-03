@@ -222,7 +222,7 @@ const WeeklyMessMenu = () => {
                 setIsEditing(false);
             } catch (e) {
                 console.error("Failed to delete menu", e);
-                alert("Failed to delete menu");
+                alert(`Failed to delete menu: ${e.message || "Unknown error"}`);
             }
         }
     };

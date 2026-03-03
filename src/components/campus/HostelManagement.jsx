@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import DataTable from '../common/DataTable';
 import campusService from '../../services/campusService';
-import { FaEdit } from 'react-icons/fa';
+import { FaEdit, FaTrash } from 'react-icons/fa';
 
 const HostelManagement = () => {
     const [hostelList, setHostelList] = useState([]);
@@ -69,6 +69,18 @@ const HostelManagement = () => {
         setShowModal(true);
     };
 
+    const handleDelete = async (id) => {
+        if (window.confirm("Are you sure you want to delete this hostel?")) {
+            try {
+                await campusService.deleteHostel(id);
+                loadHostels(); // Refresh list
+            } catch (error) {
+                console.error("Failed to delete hostel", error);
+                alert("Failed to delete hostel: " + error.message);
+            }
+        }
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -86,17 +98,20 @@ const HostelManagement = () => {
         console.log("Submitting Hostel Payload:", payload);
 
         try {
+            console.log(`[HostelManagement] ${isEditing ? 'Updating' : 'Creating'} hostel...`);
             if (isEditing) {
                 await campusService.updateHostel(editHostelId, payload);
             } else {
                 await campusService.createHostel(payload);
             }
-            loadHostels(); // Refresh list
+            console.log("[HostelManagement] Action successful, refreshing list...");
+            await loadHostels(); // Refresh list
             setShowModal(false);
             resetForm();
         } catch (error) {
             console.error(isEditing ? "Failed to update hostel" : "Failed to create hostel", error);
-            alert(isEditing ? "Failed to update hostel" : "Failed to create hostel");
+            const action = isEditing ? "update" : "create";
+            alert(`Failed to ${action} hostel: ${error.message || "Please check backend logs"}`);
         }
     };
 
@@ -137,13 +152,22 @@ const HostelManagement = () => {
             header: 'Actions',
             accessor: 'actions',
             render: (row) => (
-                <button
-                    className="btn btn-sm btn-warning"
-                    onClick={() => handleEdit(row)}
-                    title="Edit Hostel"
-                >
-                    <FaEdit />
-                </button>
+                <div className="d-flex gap-2">
+                    <button
+                        className="btn btn-sm btn-light border rounded-pill px-3 shadow-sm text-warning-emphasis fw-500"
+                        onClick={() => handleEdit(row)}
+                        title="Edit Hostel"
+                    >
+                        <FaEdit className="me-1" /> Edit
+                    </button>
+                    <button
+                        className="btn btn-sm btn-light border rounded-pill px-3 shadow-sm text-danger fw-500"
+                        onClick={() => handleDelete(row.hostelId || row.id)}
+                        title="Delete Hostel"
+                    >
+                        <FaTrash className="me-1" /> Delete
+                    </button>
+                </div>
             )
         }
     ];
